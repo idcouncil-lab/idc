@@ -210,30 +210,7 @@ window.addEventListener('scroll', () => {
 });
 
 // Form Validation and Submission
-document.querySelector('form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    // Simple validation
-    const inputs = this.querySelectorAll('input, textarea, select');
-    let isValid = true;
-    
-    inputs.forEach(input => {
-        if (!input.value.trim()) {
-            isValid = false;
-            input.style.borderColor = '#ef4444';
-        } else {
-            input.style.borderColor = '#e5e7eb';
-        }
-    });
-
-    if (isValid) {
-        // Show success message
-        showNotification('تم إرسال رسالتك بنجاح! سنتواصل معك قريباً.', 'success');
-        this.reset();
-    } else {
-        showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
-    }
-});
+// Form submission is handled by EmailJS in index.html
 
 // Studies Data Loading
 function loadStudiesData() {
