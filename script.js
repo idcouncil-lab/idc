@@ -471,7 +471,7 @@ function loadCouncilData() {
         return;
     }
     
-    container.innerHTML = council.map(member => `
+    container.innerHTML = council.map((member, index) => `
         <div class="bg-white/10 backdrop-blur-md rounded-2xl overflow-hidden hover:bg-white/20 transition-all group">
             <div class="relative overflow-hidden aspect-square">
                 <img src="${member.image}" alt="${member.name}" class="w-full h-full object-contain bg-stone-200 group-hover:scale-110 transition-transform duration-300">
@@ -486,7 +486,7 @@ function loadCouncilData() {
             </div>
             <div class="p-4 bg-stone-900">
                 <p class="text-stone-300 text-sm mb-3 line-clamp-2">${member.bio}</p>
-                <div class="space-y-2 text-xs text-stone-400 border-t border-stone-700 pt-3">
+                <div class="space-y-2 text-xs text-stone-400 border-t border-stone-700 pt-3 mb-3">
                     <p class="flex items-center gap-2 hover:text-amber-400 transition-colors">
                         <i data-lucide="mail" class="w-3 h-3"></i> 
                         <span>${member.email}</span>
@@ -496,11 +496,83 @@ function loadCouncilData() {
                         <span>${member.phone}</span>
                     </p>
                 </div>
+                <button onclick="openMemberModal(${index})" class="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
+                    <i data-lucide="info" class="w-4 h-4"></i>
+                    تفاصيل
+                </button>
             </div>
         </div>
     `).join('');
     
     lucide.createIcons();
+    createMemberModal();
+}
+
+function createMemberModal() {
+    if (document.getElementById('memberModal')) return;
+
+    const modal = document.createElement('div');
+    modal.id = 'memberModal';
+    modal.className = 'fixed inset-0 z-[999] flex items-center justify-center p-4';
+    modal.style.display = 'none';
+    modal.innerHTML = `
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeMemberModal()"></div>
+        <div class="relative bg-stone-900 text-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden z-10 border border-stone-700">
+            <button onclick="closeMemberModal()" class="absolute top-4 left-4 w-9 h-9 bg-stone-700 hover:bg-stone-600 rounded-full flex items-center justify-center transition-colors z-20">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <div id="modalImage" class="w-full h-56 overflow-hidden relative">
+                <img id="modalImg" src="" alt="" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-gradient-to-t from-stone-900/80 to-transparent"></div>
+                <div class="absolute bottom-0 right-0 p-5">
+                    <span id="modalCategory" class="px-3 py-1 bg-amber-500 text-white text-xs font-bold rounded-full"></span>
+                </div>
+            </div>
+            <div class="p-6">
+                <h3 id="modalName" class="text-2xl font-bold mb-1 text-white"></h3>
+                <p id="modalPosition" class="text-amber-400 font-semibold mb-4 text-sm"></p>
+                <p id="modalBio" class="text-stone-300 text-sm leading-relaxed mb-5"></p>
+                <div class="space-y-2 text-sm text-stone-400 border-t border-stone-700 pt-4">
+                    <p id="modalEmail" class="flex items-center gap-2">
+                        <i data-lucide="mail" class="w-4 h-4 text-amber-400"></i>
+                        <span></span>
+                    </p>
+                    <p id="modalPhone" class="flex items-center gap-2">
+                        <i data-lucide="phone" class="w-4 h-4 text-amber-400"></i>
+                        <span></span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    lucide.createIcons();
+}
+
+function openMemberModal(index) {
+    const council = JSON.parse(localStorage.getItem('iraq_dates_council') || '[]');
+    const member = council[index];
+    if (!member) return;
+
+    const modal = document.getElementById('memberModal');
+    document.getElementById('modalImg').src = member.image;
+    document.getElementById('modalImg').alt = member.name;
+    document.getElementById('modalCategory').textContent = member.category;
+    document.getElementById('modalName').textContent = member.name;
+    document.getElementById('modalPosition').textContent = member.position;
+    document.getElementById('modalBio').textContent = member.bio;
+    document.getElementById('modalEmail').querySelector('span').textContent = member.email;
+    document.getElementById('modalPhone').querySelector('span').textContent = member.phone;
+
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    lucide.createIcons();
+}
+
+function closeMemberModal() {
+    const modal = document.getElementById('memberModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
 }
 
 function getEventBadgeColor(type) {
