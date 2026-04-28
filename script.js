@@ -9,12 +9,14 @@ document.addEventListener('DOMContentLoaded', function() {
     initSmoothScroll();
     initCounterAnimation();
     
-    // Load data from localStorage
-    loadDatesData();
-    loadEventsData();
-    loadCouncilData();
-    loadStudiesData();
-    loadAdsData();
+    // انتظر تهيئة Firebase ثم حمّل البيانات
+    firebaseReadyPromise.then(() => {
+        loadDatesData();
+        loadEventsData();
+        loadCouncilData();
+        loadStudiesData();
+        loadAdsData();
+    });
 });
 
 function escapeHTML(value) {
@@ -213,8 +215,8 @@ window.addEventListener('scroll', () => {
 // Form submission is handled by EmailJS in index.html
 
 // Studies Data Loading
-function loadStudiesData() {
-    const studies = JSON.parse(localStorage.getItem('iraq_dates_studies') || '[]');
+async function loadStudiesData() {
+    const studies = await unifiedStorage.getJSON(StorageKeys.STUDIES, []);
     const container = document.getElementById('studiesContainer');
     
     if (!container) return;
@@ -249,8 +251,8 @@ function loadStudiesData() {
 }
 
 // Ads Data Loading
-function loadAdsData() {
-    const ads = JSON.parse(localStorage.getItem('iraq_dates_ads') || '[]');
+async function loadAdsData() {
+    const ads = await unifiedStorage.getJSON(StorageKeys.ADS, []);
     const container = document.getElementById('adsContainer');
     
     if (!container) return;
@@ -285,8 +287,8 @@ function loadAdsData() {
     lucide.createIcons();
 }
 
-function downloadStudy(fileName) {
-    const studies = JSON.parse(localStorage.getItem('iraq_dates_studies') || '[]');
+async function downloadStudy(fileName) {
+    const studies = await unifiedStorage.getJSON(StorageKeys.STUDIES, []);
     const study = studies.find(item => Number(item.id) === Number(fileName));
     
     if (!study || !study.fileData) {
@@ -390,8 +392,8 @@ document.querySelectorAll('button, .btn-glow').forEach(button => {
 });
 
 // Load Data Functions
-function loadDatesData() {
-    const dates = JSON.parse(localStorage.getItem('iraq_dates_types') || '[]');
+async function loadDatesData() {
+    const dates = await unifiedStorage.getJSON(StorageKeys.DATES, []);
     const container = document.getElementById('datesContainer');
     
     if (dates.length === 0) {
@@ -423,8 +425,8 @@ function loadDatesData() {
     lucide.createIcons();
 }
 
-function loadEventsData() {
-    const events = JSON.parse(localStorage.getItem('iraq_dates_events') || '[]');
+async function loadEventsData() {
+    const events = await unifiedStorage.getJSON(StorageKeys.EVENTS, []);
     const container = document.getElementById('eventsContainer');
     
     if (events.length === 0) {
@@ -462,8 +464,8 @@ function loadEventsData() {
     lucide.createIcons();
 }
 
-function loadCouncilData() {
-    const council = JSON.parse(localStorage.getItem('iraq_dates_council') || '[]');
+async function loadCouncilData() {
+    const council = await unifiedStorage.getJSON(StorageKeys.COUNCIL, []);
     const container = document.getElementById('councilContainer');
     
     if (council.length === 0) {

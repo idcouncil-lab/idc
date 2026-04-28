@@ -507,6 +507,7 @@
         </div>
     </footer>
 
+    <script src="firebase-storage.js"></script>
     <script src="script.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script>
@@ -570,94 +571,93 @@
 
 <script>
 
-const EVENTS_STORAGE_KEY = 'iraq_dates_events';
-const DATES_STORAGE_KEY = 'iraq_dates_types';
-const SETTINGS_STORAGE_KEY = 'iraq_dates_settings';
+const loadDataFromStorage = async () => {
+    try {
+        // انتظر تهيئة Firebase
+        await firebaseReadyPromise;
 
-function loadEvents() {
-    const events = JSON.parse(localStorage.getItem(EVENTS_STORAGE_KEY) || '[]');
-    const container = document.getElementById("eventsContainer");
-    if (!container) return;
-    container.innerHTML = "";
+        // تحميل الفعاليات
+        const events = await unifiedStorage.getJSON(StorageKeys.EVENTS, []);
+        const eventsContainer = document.getElementById("eventsContainer");
+        if (eventsContainer) {
+            if (events.length === 0) {
+                eventsContainer.innerHTML = '<p class="col-span-full text-center text-white">لا توجد فعاليات متاحة حالياً</p>';
+            } else {
+                eventsContainer.innerHTML = events.map(event => `
+                    <div class="bg-white rounded-3xl overflow-hidden shadow-lg">
+                        <div class="h-48 overflow-hidden relative">
+                            <img src="${event.image}" class="w-full h-full object-cover">
+                            <div class="absolute top-4 right-4 bg-amber-600 text-white px-4 py-2 rounded-full text-sm">
+                                ${event.type}
+                            </div>
+                        </div>
+                        <div class="p-6">
+                            <h3 class="text-xl font-bold mb-2">${event.title}</h3>
+                            <p class="text-stone-600 mb-3">${event.description}</p>
+                            <p>${event.date}</p>
+                            <p>${event.location}</p>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
 
-    events.forEach(event => {
-        container.innerHTML += `
-        <div class="bg-white rounded-3xl overflow-hidden shadow-lg">
-            <div class="h-48 overflow-hidden relative">
-                <img src="${event.image}" class="w-full h-full object-cover">
-                <div class="absolute top-4 right-4 bg-amber-600 text-white px-4 py-2 rounded-full text-sm">
-                    ${event.type}
-                </div>
-            </div>
-            <div class="p-6">
-                <h3 class="text-xl font-bold mb-2">${event.title}</h3>
-                <p class="text-stone-600 mb-3">${event.description}</p>
-                <p>${event.date}</p>
-                <p>${event.location}</p>
-            </div>
-        </div>
-        `;
-    });
-}
+        // تحميل أنواع التمور
+        const dates = await unifiedStorage.getJSON(StorageKeys.DATES, []);
+        const datesContainer = document.getElementById('datesContainer');
+        if (datesContainer) {
+            if (dates.length === 0) {
+                datesContainer.innerHTML = '<p class="text-center text-white col-span-4">لا توجد أنواع تمور مضافة حالياً</p>';
+            } else {
+                datesContainer.innerHTML = dates.map(date => `
+                    <div class="group relative overflow-hidden rounded-xl bg-stone-800 hover:bg-stone-700 transition-all">
+                        <div class="overflow-hidden" style="height: 130px;">
+                            <img src="${date.image}" alt="${date.name}" class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700">
+                        </div>
+                        <div class="p-3">
+                            <h3 class="text-sm font-bold text-amber-400 mb-1">${date.name}</h3>
+                            <p class="text-stone-400 text-xs mb-2 line-clamp-2">${date.description}</p>
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs text-stone-500">الحجم: ${date.size}</span>
+                                <span class="text-xs text-amber-500 font-semibold">${date.classification}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
 
-function loadDates() {
-    const dates = JSON.parse(localStorage.getItem(DATES_STORAGE_KEY) || '[]');
-    const container = document.getElementById('datesContainer');
-    if (!container) return;
+        // تحميل إعدادات الموقع
+        const settings = await unifiedStorage.getJSON(StorageKeys.SETTINGS, {});
+        if (settings.siteTitle) {
+            document.title = `${settings.siteTitle} | الرئيسية`;
+        }
+        const addr = document.getElementById('contactAddress');
+        if (addr) addr.textContent = settings.address || 'بغداد، المنصور، شارع 14 رمضان';
+        const phone = document.getElementById('contactPhone');
+        if (phone) phone.textContent = settings.phone || '+964 770 123 4567';
+        const email = document.getElementById('contactEmail');
+        if (email) email.textContent = settings.email || 'idcouncil25@gmail.com';
 
-    if (dates.length === 0) {
-        container.innerHTML = '<p class="text-center text-white col-span-4">لا توجد أنواع تمور مضافة حالياً. الرجاء تحديث البيانات من لوحة التحكم.</p>';
-        return;
+        console.log('✅ تم تحميل البيانات من الخزن الموحد بنجاح');
+    } catch (error) {
+        console.error('خطأ في تحميل البيانات:', error);
     }
-
-    container.innerHTML = '';
-    dates.forEach(date => {
-        container.innerHTML += `
-        <div class="group relative overflow-hidden rounded-xl bg-stone-800 hover:bg-stone-700 transition-all">
-            <div class="overflow-hidden" style="height: 130px;">
-                <img src="${date.image}" alt="${date.name}" class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700">
-            </div>
-            <div class="p-3">
-                <h3 class="text-sm font-bold text-amber-400 mb-1">${date.name}</h3>
-                <p class="text-stone-400 text-xs mb-2 line-clamp-2">${date.description}</p>
-                <div class="flex items-center justify-between">
-                    <span class="text-xs text-stone-500">الحجم: ${date.size}</span>
-                    <span class="text-xs text-amber-500 font-semibold">${date.classification}</span>
-                </div>
-            </div>
-        </div>
-        `;
-    });
-}
-
-function loadSiteSettings() {
-    const settings = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}');
-    if (settings.siteTitle) {
-        document.title = `${settings.siteTitle} | الرئيسية`;
-    }
-    const addr = document.getElementById('contactAddress');
-    if (addr) addr.textContent = settings.address || 'بغداد، المنصور، شارع 14 رمضان';
-    const phone = document.getElementById('contactPhone');
-    if (phone) phone.textContent = settings.phone || '+964 770 123 4567';
-    const email = document.getElementById('contactEmail');
-    if (email) email.textContent = settings.email || 'idcouncil25@gmail.com';
-}
-
-window.onload = function() {
-    loadEvents();
-    loadDates();
-    loadSiteSettings();
 };
 
+window.addEventListener('firebaseReady', loadDataFromStorage);
+window.addEventListener('firebaseFailed', loadDataFromStorage);
+
+// تحميل البيانات عند اكتمال تحميل الصفحة
+window.addEventListener('load', async () => {
+    await firebaseReadyPromise;
+    loadDataFromStorage();
+});
+
+// الاستماع للتحديثات من نوافذ أخرى
 window.addEventListener('storage', function(event) {
-    if (event.key === EVENTS_STORAGE_KEY) {
-        loadEvents();
-    }
-    if (event.key === DATES_STORAGE_KEY) {
-        loadDates();
-    }
-    if (event.key === SETTINGS_STORAGE_KEY) {
-        loadSiteSettings();
+    if (Object.values(StorageKeys).includes(event.key)) {
+        loadDataFromStorage();
     }
 });
 </script>

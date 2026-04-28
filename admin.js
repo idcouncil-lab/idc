@@ -1,126 +1,34 @@
 // Admin Panel JavaScript - CMS for Iraqi Dates Council
 
-// Data Management
-const FIREBASE_CONFIG = {
-    apiKey: 'AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o',
-    authDomain: 'id-council-c1b1d.firebaseapp.com',
-    projectId: 'id-council-c1b1d',
-    storageBucket: 'id-council-c1b1d.firebasestorage.app',
-    messagingSenderId: '2987746191',
-    appId: '1:2987746191:web:e8f267db34eb0a903b21fa'
-};
+// ملاحظة: يتم استخدام firebase-storage.js الموحد
+// تم تعريف unifiedStorage و StorageKeys في firebase-storage.js
 
-const FIRESTORE_COLLECTION = 'siteData';
-const firebaseCache = new Map();
-let firebaseDocApi = null;
-let firebaseEnabled = false;
-let firebaseInitError = null;
-
+// إنشاء alias متوافق مع الكود القديم
 const getfirebase = {
-    getItem(key) {
-        if (firebaseCache.has(key)) {
-            return firebaseCache.get(key);
-        }
-
-        return window.localStorage.getItem(key);
+    getItem: (key) => {
+        const value = window.localStorage.getItem(key);
+        return value;
     },
     setItem(key, value) {
         const normalized = String(value);
-        firebaseCache.set(key, normalized);
         window.localStorage.setItem(key, normalized);
-
-        if (firebaseDocApi) {
-            firebaseDocApi.set(key, normalized).catch((error) => {
-                console.error(`فشل حفظ ${key} في Firebase:`, error);
-                alert(`فشل الحفظ السحابي في Firebase للمفتاح: ${key}`);
+        // تحديث Firebase بدون انتظار (في الخلفية)
+        if (unifiedStorage) {
+            unifiedStorage.setItem(key, normalized).catch(error => {
+                console.warn(`تحذير: فشل تحديث Firebase للمفتاح ${key}:`, error);
             });
         }
     },
     removeItem(key) {
-        firebaseCache.delete(key);
         window.localStorage.removeItem(key);
-
-        if (firebaseDocApi) {
-            firebaseDocApi.remove(key).catch((error) => {
-                console.error(`فشل حذف ${key} من Firebase:`, error);
-                alert(`فشل حذف البيانات من Firebase للمفتاح: ${key}`);
+        // حذف من Firebase بدون انتظار (في الخلفية)
+        if (unifiedStorage) {
+            unifiedStorage.removeItem(key).catch(error => {
+                console.warn(`تحذير: فشل حذف Firebase للمفتاح ${key}:`, error);
             });
         }
     }
 };
-
-async function initializeFirebaseStore() {
-    try {
-        const [{ initializeApp, getApps, getApp }, firestoreModule] = await Promise.all([
-            import('https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js'),
-            import('https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js')
-        ]);
-
-        const {
-            getFirestore,
-            doc,
-            getDoc,
-            setDoc,
-            deleteDoc,
-            serverTimestamp,
-            onSnapshot
-        } = firestoreModule;
-
-        const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
-        const db = getFirestore(app);
-
-        firebaseDocApi = {
-            async set(key, value) {
-                await setDoc(doc(db, FIRESTORE_COLLECTION, key), {
-                    value,
-                    updatedAt: serverTimestamp()
-                }, { merge: true });
-            },
-            async remove(key) {
-                await deleteDoc(doc(db, FIRESTORE_COLLECTION, key));
-            }
-        };
-
-        await Promise.all(Object.values(StorageKeys).map(async (key) => {
-            const docRef = doc(db, FIRESTORE_COLLECTION, key);
-            const snapshot = await getDoc(docRef);
-
-            if (snapshot.exists()) {
-                const remoteValue = String(snapshot.data().value ?? '');
-                firebaseCache.set(key, remoteValue);
-                window.localStorage.setItem(key, remoteValue);
-                return;
-            }
-
-            const localValue = window.localStorage.getItem(key);
-            if (localValue !== null) {
-                firebaseCache.set(key, localValue);
-                await firebaseDocApi.set(key, localValue);
-            }
-
-            onSnapshot(docRef, (nextSnapshot) => {
-                if (!nextSnapshot.exists()) {
-                    firebaseCache.delete(key);
-                    window.localStorage.removeItem(key);
-                    return;
-                }
-
-                const remoteValue = String(nextSnapshot.data().value ?? '');
-                firebaseCache.set(key, remoteValue);
-                window.localStorage.setItem(key, remoteValue);
-            });
-        }));
-
-        firebaseEnabled = true;
-        return true;
-    } catch (error) {
-        firebaseInitError = error;
-        console.error('تعذر تهيئة Firebase، سيتم استخدام التخزين المحلي مؤقتاً:', error);
-        return false;
-    }
-}
-
-const firebaseReady = initializeFirebaseStore();
 
 const UploadConstraints = {
     studyMaxBytes: 5 * 1024 * 1024,
@@ -1522,17 +1430,8 @@ function formatFileSize(bytes) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async function() {
-    await firebaseReady;
-
-    const statusEl = document.getElementById('firebaseStatus');
-    if (statusEl) {
-        if (firebaseEnabled) {
-            statusEl.innerHTML = '<span class="flex items-center gap-1 text-green-600 text-xs font-medium"><span class="w-2 h-2 bg-green-500 rounded-full inline-block"></span>متصل بـ Firebase</span>';
-        } else {
-            statusEl.innerHTML = '<span class="flex items-center gap-1 text-red-500 text-xs font-medium"><span class="w-2 h-2 bg-red-500 rounded-full inline-block animate-pulse"></span>وضع محلي فقط</span>';
-            console.warn('تعذر الاتصال بـ Firebase:', firebaseInitError);
-        }
-    }
+    // انتظر تهيئة Firebase الموحدة
+    await firebaseReadyPromise;
 
     initializeData();
     updateDashboardStats();
