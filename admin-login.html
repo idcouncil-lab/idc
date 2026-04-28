@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar">
 <head>
@@ -36,7 +37,8 @@ const password = document.getElementById("password").value;
 
 signInWithEmailAndPassword(auth, email, password)
 .then(() => {
-window.location.href = "admin-panel.html";
+sessionStorage.setItem('adminLoggedIn', 'true');
+window.location.href = "admin.html";
 })
 .catch(() => {
 alert("بيانات غير صحيحة");
