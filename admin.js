@@ -1,14 +1,13 @@
 // Admin Panel JavaScript - CMS for Iraqi Dates Council
 
 // Data Management
-const StorageKeys = {
-    EVENTS: 'iraq_dates_events',
-    DATES: 'iraq_dates_types',
-    MESSAGES: 'iraq_dates_messages',
-    SETTINGS: 'iraq_dates_settings',
-    COUNCIL: 'iraq_dates_council',
-    STUDIES: 'iraq_dates_studies',
-    ADS: 'iraq_dates_ads'
+const firebaseConfig = {
+  apiKey: "AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o",
+  authDomain: "id-council-c1b1d.firebaseapp.com",
+  projectId: "id-council-c1b1d",
+  storageBucket: "id-council-c1b1d.firebasestorage.app",
+  messagingSenderId: "2987746191",
+  appId: "1:2987746191:web:e8f267db34eb0a903b21fa"
 };
 
 const FIREBASE_CONFIG = {
