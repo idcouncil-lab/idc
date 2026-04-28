@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>تسجيل الدخول</title>
+</head>
+<body>
+
+<h2>دخول الإدارة</h2>
+
+<input type="email" id="email" placeholder="البريد"><br><br>
+<input type="password" id="password" placeholder="كلمة المرور"><br><br>
+
+<button onclick="login()">دخول</button>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+ apiKey: "ضع بياناتك",
+ authDomain: "ضع بياناتك",
+ projectId: "ضع بياناتك"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+window.login = function() {
+
+const email = document.getElementById("email").value;
+const password = document.getElementById("password").value;
+
+signInWithEmailAndPassword(auth, email, password)
+.then(() => {
+window.location.href = "admin.html";
+})
+.catch(() => {
+alert("بيانات غير صحيحة");
+});
+
+}
+</script>
+
+</body>
+</html>
