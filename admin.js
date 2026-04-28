@@ -1,15 +1,6 @@
 // Admin Panel JavaScript - CMS for Iraqi Dates Council
 
 // Data Management
-const firebaseConfig = {
-  apiKey: "AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o",
-  authDomain: "id-council-c1b1d.firebaseapp.com",
-  projectId: "id-council-c1b1d",
-  storageBucket: "id-council-c1b1d.firebasestorage.app",
-  messagingSenderId: "2987746191",
-  appId: "1:2987746191:web:e8f267db34eb0a903b21fa"
-};
-
 const FIREBASE_CONFIG = {
     apiKey: 'AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o',
     authDomain: 'id-council-c1b1d.firebaseapp.com',
@@ -61,8 +52,8 @@ const getfirebase = {
 async function initializeFirebaseStore() {
     try {
         const [{ initializeApp, getApps, getApp }, firestoreModule] = await Promise.all([
-            import('https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js'),
-            import('https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js')
+            import('https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js'),
+            import('https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js')
         ]);
 
         const {
@@ -1533,8 +1524,14 @@ function formatFileSize(bytes) {
 document.addEventListener('DOMContentLoaded', async function() {
     await firebaseReady;
 
-    if (!firebaseEnabled && firebaseInitError) {
-        alert('تعذر الاتصال بـ Firebase. البيانات تُحفَظ محليًا فقط في هذا المتصفح.');
+    const statusEl = document.getElementById('firebaseStatus');
+    if (statusEl) {
+        if (firebaseEnabled) {
+            statusEl.innerHTML = '<span class="flex items-center gap-1 text-green-600 text-xs font-medium"><span class="w-2 h-2 bg-green-500 rounded-full inline-block"></span>متصل بـ Firebase</span>';
+        } else {
+            statusEl.innerHTML = '<span class="flex items-center gap-1 text-red-500 text-xs font-medium"><span class="w-2 h-2 bg-red-500 rounded-full inline-block animate-pulse"></span>وضع محلي فقط</span>';
+            console.warn('تعذر الاتصال بـ Firebase:', firebaseInitError);
+        }
     }
 
     initializeData();
