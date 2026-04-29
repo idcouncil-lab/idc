@@ -49,7 +49,6 @@ const getfirebase = {
         firebaseCache.set(key, normalized);
         window.localStorage.setItem(key, normalized);
 
-        // انتظر اكتمال تهيئة Firebase قبل الحفظ
         firebaseReady.then(() => {
             if (firebaseDocApi) {
                 firebaseDocApi.set(key, normalized).catch((error) => {
@@ -74,9 +73,10 @@ const getfirebase = {
 
 async function initializeFirebaseStore() {
     try {
-        const [{ initializeApp, getApps, getApp }, firestoreModule] = await Promise.all([
+        const [{ initializeApp, getApps, getApp }, firestoreModule, { getAuth, onAuthStateChanged }] = await Promise.all([
             import('https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js'),
-            import('https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js')
+            import('https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js'),
+            import('https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js')
         ]);
 
         const {
@@ -91,6 +91,20 @@ async function initializeFirebaseStore() {
 
         const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
         const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // انتظر حتى يتحقق Firebase Auth من حالة المستخدم
+        await new Promise((resolve) => {
+            const unsubscribe = onAuthStateChanged(auth, (user) => {
+                unsubscribe();
+                if (!user) {
+                    // المستخدم غير مسجّل — أعِده لصفحة الدخول
+                    console.warn('المستخدم غير مسجّل في Firebase Auth، إعادة التوجيه...');
+                    window.location.href = 'admin-login.html';
+                }
+                resolve(user);
+            });
+        });
 
         firebaseDocApi = {
             async set(key, value) {
@@ -109,12 +123,10 @@ async function initializeFirebaseStore() {
             const snapshot = await getDoc(docRef);
 
             if (snapshot.exists()) {
-                // قرأنا من Firestore — حدّث الكاش المحلي
                 const remoteValue = String(snapshot.data().value ?? '');
                 firebaseCache.set(key, remoteValue);
                 window.localStorage.setItem(key, remoteValue);
             } else {
-                // لا يوجد في Firestore — ارفع النسخة المحلية إن وُجدت
                 const localValue = window.localStorage.getItem(key);
                 if (localValue !== null) {
                     firebaseCache.set(key, localValue);
@@ -122,13 +134,13 @@ async function initializeFirebaseStore() {
                 }
             }
 
-            // سجّل الاستماع للتغييرات دائماً بغض النظر عن الحالة السابقة
             onSnapshot(docRef, (nextSnapshot) => {
                 if (!nextSnapshot.exists()) {
                     firebaseCache.delete(key);
                     window.localStorage.removeItem(key);
                     return;
                 }
+
                 const remoteValue = String(nextSnapshot.data().value ?? '');
                 firebaseCache.set(key, remoteValue);
                 window.localStorage.setItem(key, remoteValue);
