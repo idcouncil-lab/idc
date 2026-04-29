@@ -49,12 +49,11 @@ const getfirebase = {
         firebaseCache.set(key, normalized);
         window.localStorage.setItem(key, normalized);
 
-        // انتظر تهيئة Firebase ثم احفظ
+        // انتظر اكتمال تهيئة Firebase قبل الحفظ
         firebaseReady.then(() => {
             if (firebaseDocApi) {
                 firebaseDocApi.set(key, normalized).catch((error) => {
                     console.error(`فشل حفظ ${key} في Firebase:`, error);
-                    // لا نعرض alert - البيانات محفوظة محلياً بأمان
                 });
             }
         });
@@ -110,25 +109,26 @@ async function initializeFirebaseStore() {
             const snapshot = await getDoc(docRef);
 
             if (snapshot.exists()) {
+                // قرأنا من Firestore — حدّث الكاش المحلي
                 const remoteValue = String(snapshot.data().value ?? '');
                 firebaseCache.set(key, remoteValue);
                 window.localStorage.setItem(key, remoteValue);
-                return;
+            } else {
+                // لا يوجد في Firestore — ارفع النسخة المحلية إن وُجدت
+                const localValue = window.localStorage.getItem(key);
+                if (localValue !== null) {
+                    firebaseCache.set(key, localValue);
+                    await firebaseDocApi.set(key, localValue);
+                }
             }
 
-            const localValue = window.localStorage.getItem(key);
-            if (localValue !== null) {
-                firebaseCache.set(key, localValue);
-                await firebaseDocApi.set(key, localValue);
-            }
-
+            // سجّل الاستماع للتغييرات دائماً بغض النظر عن الحالة السابقة
             onSnapshot(docRef, (nextSnapshot) => {
                 if (!nextSnapshot.exists()) {
                     firebaseCache.delete(key);
                     window.localStorage.removeItem(key);
                     return;
                 }
-
                 const remoteValue = String(nextSnapshot.data().value ?? '');
                 firebaseCache.set(key, remoteValue);
                 window.localStorage.setItem(key, remoteValue);
