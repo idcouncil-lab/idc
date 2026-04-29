@@ -12,15 +12,6 @@ const StorageKeys = {
 };
 
 // Data Management
-const firebaseConfig = {
-  apiKey: "AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o",
-  authDomain: "id-council-c1b1d.firebaseapp.com",
-  projectId: "id-council-c1b1d",
-  storageBucket: "id-council-c1b1d.firebasestorage.app",
-  messagingSenderId: "2987746191",
-  appId: "1:2987746191:web:e8f267db34eb0a903b21fa"
-};
-
 const FIREBASE_CONFIG = {
     apiKey: 'AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o',
     authDomain: 'id-council-c1b1d.firebaseapp.com',
@@ -1579,8 +1570,14 @@ function formatFileSize(bytes) {
 document.addEventListener('DOMContentLoaded', async function() {
     await firebaseReady;
 
-    if (!firebaseEnabled && firebaseInitError) {
-        alert('تعذر الاتصال بـ Firebase. البيانات تُحفَظ محليًا فقط في هذا المتصفح.');
+    const statusEl = document.getElementById('firebaseStatus');
+    if (statusEl) {
+        if (firebaseEnabled) {
+            statusEl.innerHTML = '<span style="color:#16a34a;font-size:12px;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:#16a34a;border-radius:50%;display:inline-block"></span>متصل بـ Firebase</span>';
+        } else {
+            statusEl.innerHTML = '<span style="color:#dc2626;font-size:12px;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:#dc2626;border-radius:50%;display:inline-block"></span>وضع محلي</span>';
+            console.warn('تعذر الاتصال بـ Firebase:', firebaseInitError);
+        }
     }
 
     initializeData();
