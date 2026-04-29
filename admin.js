@@ -12,15 +12,6 @@ const StorageKeys = {
 };
 
 // Data Management
-const firebaseConfig = {
-  apiKey: "AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o",
-  authDomain: "id-council-c1b1d.firebaseapp.com",
-  projectId: "id-council-c1b1d",
-  storageBucket: "id-council-c1b1d.firebasestorage.app",
-  messagingSenderId: "2987746191",
-  appId: "1:2987746191:web:e8f267db34eb0a903b21fa"
-};
-
 const FIREBASE_CONFIG = {
     apiKey: 'AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o',
     authDomain: 'id-council-c1b1d.firebaseapp.com',
@@ -1194,6 +1185,25 @@ function readFileAsDataURL(file) {
     });
 }
 
+// رفع الملف إلى Firebase Storage وإرجاع URL
+async function uploadFileToStorage(file, folder) {
+    try {
+        const { getApps, getApp, initializeApp } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js');
+        const { getStorage, ref, uploadBytes, getDownloadURL } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js');
+        const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
+        const storage = getStorage(app);
+        const fileName = `${folder}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const storageRef = ref(storage, fileName);
+        const snapshot = await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(snapshot.ref);
+        return url;
+    } catch (error) {
+        console.warn('Firebase Storage فشل، تحويل إلى base64:', error);
+        // fallback إلى base64
+        return readFileAsDataURL(file);
+    }
+}
+
 function saveStudies(event) {
     try {
         event.preventDefault();
@@ -1243,7 +1253,7 @@ function saveStudies(event) {
                         studies[index].file = file.name;
                         studies[index].fileName = file.name;
                         studies[index].fileType = file.type || 'application/pdf';
-                        studies[index].fileData = await readFileAsDataURL(file);
+                        studies[index].fileData = await uploadFileToStorage(file, \'studies\');
                     }
                 }
             } else {
@@ -1256,7 +1266,7 @@ function saveStudies(event) {
                     file: file.name,
                     fileName: file.name,
                     fileType: file.type || 'application/pdf',
-                    fileData: await readFileAsDataURL(file),
+                    fileData: await uploadFileToStorage(file, \'studies\'),
                     date
                 });
             }
@@ -1442,7 +1452,7 @@ function saveAds(event) {
                     ads[index].link = link;
                     
                     if (imageInput.files.length > 0) {
-                        ads[index].image = await readFileAsDataURL(imageInput.files[0]);
+                        ads[index].image = await uploadFileToStorage(imageInput.files[0], 'ads');
                     }
                 }
             } else {
@@ -1451,7 +1461,7 @@ function saveAds(event) {
                     id: newId,
                     title,
                     description,
-                    image: await readFileAsDataURL(imageInput.files[0]),
+                    image: await uploadFileToStorage(imageInput.files[0], 'ads'),
                     type,
                     date,
                     link
@@ -1561,7 +1571,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     await firebaseReady;
 
     if (!firebaseEnabled && firebaseInitError) {
-        alert('تعذر الاتصال بـ Firebase. البيانات تُحفَظ محليًا فقط في هذا المتصفح.');
+        console.warn('تعذر الاتصال بـ Firebase:', firebaseInitError);
     }
 
     initializeData();
@@ -1596,4 +1606,44 @@ document.addEventListener('DOMContentLoaded', async function() {
             closeAllModals();
         }
     };
+});
+// ===== تصدير الدوال إلى window لتعمل مع onclick في HTML =====
+Object.assign(window, {
+    showSection,
+    toggleSidebar,
+    logout,
+    openEventModal,
+    closeEventModal,
+    editEvent,
+    deleteEvent,
+    openDateModal,
+    closeDateModal,
+    editDate,
+    deleteDate,
+    loadMessages,
+    deleteMessage,
+    clearAllMessages,
+    loadSettings,
+    previewImage,
+    previewCouncilImage,
+    openCouncilModal,
+    closeCouncilModal,
+    saveCouncil,
+    editCouncil,
+    deleteCouncil,
+    closeAllModals,
+    openStudiesModal,
+    closeStudiesModal,
+    saveStudies,
+    editStudy,
+    deleteStudy,
+    downloadStudy,
+    openAdsModal,
+    closeAdsModal,
+    saveAds,
+    editAd,
+    deleteAd,
+    previewStudiesFile,
+    previewAdsImage,
+    uploadFileToStorage,
 });
