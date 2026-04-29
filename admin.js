@@ -49,23 +49,27 @@ const getfirebase = {
         firebaseCache.set(key, normalized);
         window.localStorage.setItem(key, normalized);
 
-        if (firebaseDocApi) {
-            firebaseDocApi.set(key, normalized).catch((error) => {
-                console.error(`فشل حفظ ${key} في Firebase:`, error);
-                alert(`فشل الحفظ السحابي في Firebase للمفتاح: ${key}`);
-            });
-        }
+        // انتظر تهيئة Firebase ثم احفظ
+        firebaseReady.then(() => {
+            if (firebaseDocApi) {
+                firebaseDocApi.set(key, normalized).catch((error) => {
+                    console.error(`فشل حفظ ${key} في Firebase:`, error);
+                    // لا نعرض alert - البيانات محفوظة محلياً بأمان
+                });
+            }
+        });
     },
     removeItem(key) {
         firebaseCache.delete(key);
         window.localStorage.removeItem(key);
 
-        if (firebaseDocApi) {
-            firebaseDocApi.remove(key).catch((error) => {
-                console.error(`فشل حذف ${key} من Firebase:`, error);
-                alert(`فشل حذف البيانات من Firebase للمفتاح: ${key}`);
-            });
-        }
+        firebaseReady.then(() => {
+            if (firebaseDocApi) {
+                firebaseDocApi.remove(key).catch((error) => {
+                    console.error(`فشل حذف ${key} من Firebase:`, error);
+                });
+            }
+        });
     }
 };
 
