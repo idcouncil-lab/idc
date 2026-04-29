@@ -1,14 +1,24 @@
 // Admin Panel JavaScript - CMS for Iraqi Dates Council
 
-// Data Management
+// ===== مفاتيح التخزين =====
 const StorageKeys = {
-    EVENTS: 'iraq_dates_events',
-    DATES: 'iraq_dates_types',
-    MESSAGES: 'iraq_dates_messages',
+    EVENTS:   'iraq_dates_events',
+    DATES:    'iraq_dates_types',
+    COUNCIL:  'iraq_dates_council',
+    STUDIES:  'iraq_dates_studies',
+    ADS:      'iraq_dates_ads',
     SETTINGS: 'iraq_dates_settings',
-    COUNCIL: 'iraq_dates_council',
-    STUDIES: 'iraq_dates_studies',
-    ADS: 'iraq_dates_ads'
+    MESSAGES: 'iraq_dates_messages'
+};
+
+// Data Management
+const firebaseConfig = {
+  apiKey: "AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o",
+  authDomain: "id-council-c1b1d.firebaseapp.com",
+  projectId: "id-council-c1b1d",
+  storageBucket: "id-council-c1b1d.firebasestorage.app",
+  messagingSenderId: "2987746191",
+  appId: "1:2987746191:web:e8f267db34eb0a903b21fa"
 };
 
 const FIREBASE_CONFIG = {
@@ -62,8 +72,8 @@ const getfirebase = {
 async function initializeFirebaseStore() {
     try {
         const [{ initializeApp, getApps, getApp }, firestoreModule] = await Promise.all([
-            import('https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js'),
-            import('https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js')
+            import('https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js'),
+            import('https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js')
         ]);
 
         const {
@@ -440,8 +450,9 @@ function toggleSidebar() {
 }
 
 function logout() {
-    sessionStorage.clear();
-    window.location.replace('admin-login.html');
+    sessionStorage.removeItem('adminLoggedIn');
+    sessionStorage.removeItem('adminUsername');
+    window.location.href = 'admin-login.html';
 }
 
 // Dashboard Functions
@@ -481,22 +492,22 @@ function loadEvents() {
     tbody.innerHTML = events.map(event => `
         <tr class="hover:bg-stone-50 transition-colors">
             <td class="px-6 py-4">
-                <img src="${sanitizeImageSource(event.image)}" alt="${escapeHTML(event.title)}" class="w-16 h-16 rounded-lg object-cover">
+                <img src="${event.image}" alt="${event.title}" class="w-16 h-16 rounded-lg object-cover">
             </td>
-            <td class="px-6 py-4 font-medium text-stone-800">${escapeHTML(event.title)}</td>
-            <td class="px-6 py-4 text-stone-600">${escapeHTML(event.date)}</td>
-            <td class="px-6 py-4 text-stone-600">${escapeHTML(event.location)}</td>
+            <td class="px-6 py-4 font-medium text-stone-800">${event.title}</td>
+            <td class="px-6 py-4 text-stone-600">${event.date}</td>
+            <td class="px-6 py-4 text-stone-600">${event.location}</td>
             <td class="px-6 py-4">
                 <span class="px-3 py-1 rounded-full text-xs font-semibold ${getTypeColor(event.type)}">
-                    ${escapeHTML(event.type)}
+                    ${event.type}
                 </span>
             </td>
             <td class="px-6 py-4">
                 <div class="flex gap-2">
-                    <button onclick="editEvent(${Number(event.id)})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                    <button onclick="editEvent(${event.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="deleteEvent(${Number(event.id)})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <button onclick="deleteEvent(${event.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
@@ -585,22 +596,22 @@ function loadDates() {
     tbody.innerHTML = dates.map(date => `
         <tr class="hover:bg-stone-50 transition-colors">
             <td class="px-6 py-4">
-                <img src="${sanitizeImageSource(date.image)}" alt="${escapeHTML(date.name)}" class="w-16 h-16 rounded-lg object-cover">
+                <img src="${date.image}" alt="${date.name}" class="w-16 h-16 rounded-lg object-cover">
             </td>
-            <td class="px-6 py-4 font-medium text-stone-800">${escapeHTML(date.name)}</td>
-            <td class="px-6 py-4 text-stone-600 text-sm max-w-xs truncate">${escapeHTML(date.description)}</td>
-            <td class="px-6 py-4 text-stone-600">${escapeHTML(date.size)}</td>
+            <td class="px-6 py-4 font-medium text-stone-800">${date.name}</td>
+            <td class="px-6 py-4 text-stone-600 text-sm max-w-xs truncate">${date.description}</td>
+            <td class="px-6 py-4 text-stone-600">${date.size}</td>
             <td class="px-6 py-4">
                 <span class="px-3 py-1 rounded-full text-xs font-semibold ${getClassColor(date.classification)}">
-                    ${escapeHTML(date.classification)}
+                    ${date.classification}
                 </span>
             </td>
             <td class="px-6 py-4">
                 <div class="flex gap-2">
-                    <button onclick="editDate(${Number(date.id)})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                    <button onclick="editDate(${date.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="deleteDate(${Number(date.id)})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <button onclick="deleteDate(${date.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
@@ -898,28 +909,28 @@ function loadCouncil() {
     grid.innerHTML = council.map(member => `
         <div class="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
             <div class="relative overflow-hidden h-48 bg-stone-100">
-                <img src="${sanitizeImageSource(member.image)}" alt="${escapeHTML(member.name)}" class="w-full h-full object-cover">
+                <img src="${member.image}" alt="${member.name}" class="w-full h-full object-cover">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <button onclick="editCouncil(${Number(member.id)})" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <button onclick="editCouncil(${member.id})" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="deleteCouncil(${Number(member.id)})" class="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                    <button onclick="deleteCouncil(${member.id})" class="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
             </div>
             <div class="p-4">
-                <h3 class="font-bold text-stone-800 mb-1">${escapeHTML(member.name)}</h3>
-                <p class="text-sm text-amber-600 font-semibold mb-2">${escapeHTML(member.position)}</p>
+                <h3 class="font-bold text-stone-800 mb-1">${member.name}</h3>
+                <p class="text-sm text-amber-600 font-semibold mb-2">${member.position}</p>
                 <div class="mb-3">
                     <span class="px-2 py-1 rounded-full text-xs font-semibold ${getCategoryColor(member.category)}">
-                        ${escapeHTML(member.category)}
+                        ${member.category}
                     </span>
                 </div>
-                <p class="text-stone-600 text-sm mb-3 line-clamp-2">${escapeHTML(member.bio)}</p>
+                <p class="text-stone-600 text-sm mb-3 line-clamp-2">${member.bio}</p>
                 <div class="space-y-1 text-xs text-stone-500">
-                    <p class="flex items-center gap-2"><i data-lucide="mail" class="w-3 h-3"></i> ${escapeHTML(member.email)}</p>
-                    <p class="flex items-center gap-2"><i data-lucide="phone" class="w-3 h-3"></i> ${escapeHTML(member.phone)}</p>
+                    <p class="flex items-center gap-2"><i data-lucide="mail" class="w-3 h-3"></i> ${member.email}</p>
+                    <p class="flex items-center gap-2"><i data-lucide="phone" class="w-3 h-3"></i> ${member.phone}</p>
                 </div>
             </div>
         </div>
