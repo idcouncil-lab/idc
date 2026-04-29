@@ -1570,14 +1570,8 @@ function formatFileSize(bytes) {
 document.addEventListener('DOMContentLoaded', async function() {
     await firebaseReady;
 
-    const statusEl = document.getElementById('firebaseStatus');
-    if (statusEl) {
-        if (firebaseEnabled) {
-            statusEl.innerHTML = '<span style="color:#16a34a;font-size:12px;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:#16a34a;border-radius:50%;display:inline-block"></span>متصل بـ Firebase</span>';
-        } else {
-            statusEl.innerHTML = '<span style="color:#dc2626;font-size:12px;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:#dc2626;border-radius:50%;display:inline-block"></span>وضع محلي</span>';
-            console.warn('تعذر الاتصال بـ Firebase:', firebaseInitError);
-        }
+    if (!firebaseEnabled && firebaseInitError) {
+        console.warn('تعذر الاتصال بـ Firebase:', firebaseInitError);
     }
 
     initializeData();
@@ -1612,4 +1606,44 @@ document.addEventListener('DOMContentLoaded', async function() {
             closeAllModals();
         }
     };
+});
+// ===== تصدير الدوال إلى window لتعمل مع onclick في HTML =====
+Object.assign(window, {
+    showSection,
+    toggleSidebar,
+    logout,
+    openEventModal,
+    closeEventModal,
+    editEvent,
+    deleteEvent,
+    openDateModal,
+    closeDateModal,
+    editDate,
+    deleteDate,
+    loadMessages,
+    deleteMessage,
+    clearAllMessages,
+    loadSettings,
+    previewImage,
+    previewCouncilImage,
+    openCouncilModal,
+    closeCouncilModal,
+    saveCouncil,
+    editCouncil,
+    deleteCouncil,
+    closeAllModals,
+    openStudiesModal,
+    closeStudiesModal,
+    saveStudies,
+    editStudy,
+    deleteStudy,
+    downloadStudy,
+    openAdsModal,
+    closeAdsModal,
+    saveAds,
+    editAd,
+    deleteAd,
+    previewStudiesFile,
+    previewAdsImage,
+    uploadFileToStorage,
 });
