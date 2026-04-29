@@ -1,34 +1,136 @@
 // Admin Panel JavaScript - CMS for Iraqi Dates Council
 
-// ملاحظة: يتم استخدام firebase-storage.js الموحد
-// تم تعريف unifiedStorage و StorageKeys في firebase-storage.js
+// Data Management
+const StorageKeys = {
+    EVENTS: 'iraq_dates_events',
+    DATES: 'iraq_dates_types',
+    MESSAGES: 'iraq_dates_messages',
+    SETTINGS: 'iraq_dates_settings',
+    COUNCIL: 'iraq_dates_council',
+    STUDIES: 'iraq_dates_studies',
+    ADS: 'iraq_dates_ads'
+};
 
-// إنشاء alias متوافق مع الكود القديم
+const FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o',
+    authDomain: 'id-council-c1b1d.firebaseapp.com',
+    projectId: 'id-council-c1b1d',
+    storageBucket: 'id-council-c1b1d.firebasestorage.app',
+    messagingSenderId: '2987746191',
+    appId: '1:2987746191:web:e8f267db34eb0a903b21fa'
+};
+
+const FIRESTORE_COLLECTION = 'siteData';
+const firebaseCache = new Map();
+let firebaseDocApi = null;
+let firebaseEnabled = false;
+let firebaseInitError = null;
+
 const getfirebase = {
-    getItem: (key) => {
-        const value = window.localStorage.getItem(key);
-        return value;
+    getItem(key) {
+        if (firebaseCache.has(key)) {
+            return firebaseCache.get(key);
+        }
+
+        return window.localStorage.getItem(key);
     },
     setItem(key, value) {
         const normalized = String(value);
+        firebaseCache.set(key, normalized);
         window.localStorage.setItem(key, normalized);
-        // تحديث Firebase بدون انتظار (في الخلفية)
-        if (unifiedStorage) {
-            unifiedStorage.setItem(key, normalized).catch(error => {
-                console.warn(`تحذير: فشل تحديث Firebase للمفتاح ${key}:`, error);
+
+        if (firebaseDocApi) {
+            firebaseDocApi.set(key, normalized).catch((error) => {
+                console.error(`فشل حفظ ${key} في Firebase:`, error);
+                alert(`فشل الحفظ السحابي في Firebase للمفتاح: ${key}`);
             });
         }
     },
     removeItem(key) {
+        firebaseCache.delete(key);
         window.localStorage.removeItem(key);
-        // حذف من Firebase بدون انتظار (في الخلفية)
-        if (unifiedStorage) {
-            unifiedStorage.removeItem(key).catch(error => {
-                console.warn(`تحذير: فشل حذف Firebase للمفتاح ${key}:`, error);
+
+        if (firebaseDocApi) {
+            firebaseDocApi.remove(key).catch((error) => {
+                console.error(`فشل حذف ${key} من Firebase:`, error);
+                alert(`فشل حذف البيانات من Firebase للمفتاح: ${key}`);
             });
         }
     }
 };
+
+async function initializeFirebaseStore() {
+    try {
+        const [{ initializeApp, getApps, getApp }, firestoreModule] = await Promise.all([
+            import('https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js'),
+            import('https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js')
+        ]);
+
+        const {
+            getFirestore,
+            doc,
+            getDoc,
+            setDoc,
+            deleteDoc,
+            serverTimestamp,
+            onSnapshot
+        } = firestoreModule;
+
+        const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
+        const db = getFirestore(app);
+
+        firebaseDocApi = {
+            async set(key, value) {
+                await setDoc(doc(db, FIRESTORE_COLLECTION, key), {
+                    value,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+            },
+            async remove(key) {
+                await deleteDoc(doc(db, FIRESTORE_COLLECTION, key));
+            }
+        };
+
+        await Promise.all(Object.values(StorageKeys).map(async (key) => {
+            const docRef = doc(db, FIRESTORE_COLLECTION, key);
+            const snapshot = await getDoc(docRef);
+
+            if (snapshot.exists()) {
+                const remoteValue = String(snapshot.data().value ?? '');
+                firebaseCache.set(key, remoteValue);
+                window.localStorage.setItem(key, remoteValue);
+                return;
+            }
+
+            const localValue = window.localStorage.getItem(key);
+            if (localValue !== null) {
+                firebaseCache.set(key, localValue);
+                await firebaseDocApi.set(key, localValue);
+            }
+
+            onSnapshot(docRef, (nextSnapshot) => {
+                if (!nextSnapshot.exists()) {
+                    firebaseCache.delete(key);
+                    window.localStorage.removeItem(key);
+                    return;
+                }
+
+                const remoteValue = String(nextSnapshot.data().value ?? '');
+                firebaseCache.set(key, remoteValue);
+                window.localStorage.setItem(key, remoteValue);
+            });
+        }));
+
+        firebaseEnabled = true;
+        return true;
+    } catch (error) {
+        firebaseInitError = error;
+        console.error('تعذر تهيئة Firebase، سيتم استخدام التخزين المحلي مؤقتاً:', error);
+        return false;
+    }
+}
+
+const firebaseReady = initializeFirebaseStore();
 
 const UploadConstraints = {
     studyMaxBytes: 5 * 1024 * 1024,
@@ -338,9 +440,8 @@ function toggleSidebar() {
 }
 
 function logout() {
-    sessionStorage.removeItem('adminLoggedIn');
-    sessionStorage.removeItem('adminUsername');
-    window.location.href = 'admin-login.html';
+    sessionStorage.clear();
+    window.location.replace('admin-login.html');
 }
 
 // Dashboard Functions
@@ -380,22 +481,22 @@ function loadEvents() {
     tbody.innerHTML = events.map(event => `
         <tr class="hover:bg-stone-50 transition-colors">
             <td class="px-6 py-4">
-                <img src="${event.image}" alt="${event.title}" class="w-16 h-16 rounded-lg object-cover">
+                <img src="${sanitizeImageSource(event.image)}" alt="${escapeHTML(event.title)}" class="w-16 h-16 rounded-lg object-cover">
             </td>
-            <td class="px-6 py-4 font-medium text-stone-800">${event.title}</td>
-            <td class="px-6 py-4 text-stone-600">${event.date}</td>
-            <td class="px-6 py-4 text-stone-600">${event.location}</td>
+            <td class="px-6 py-4 font-medium text-stone-800">${escapeHTML(event.title)}</td>
+            <td class="px-6 py-4 text-stone-600">${escapeHTML(event.date)}</td>
+            <td class="px-6 py-4 text-stone-600">${escapeHTML(event.location)}</td>
             <td class="px-6 py-4">
                 <span class="px-3 py-1 rounded-full text-xs font-semibold ${getTypeColor(event.type)}">
-                    ${event.type}
+                    ${escapeHTML(event.type)}
                 </span>
             </td>
             <td class="px-6 py-4">
                 <div class="flex gap-2">
-                    <button onclick="editEvent(${event.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                    <button onclick="editEvent(${Number(event.id)})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="deleteEvent(${event.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <button onclick="deleteEvent(${Number(event.id)})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
@@ -484,22 +585,22 @@ function loadDates() {
     tbody.innerHTML = dates.map(date => `
         <tr class="hover:bg-stone-50 transition-colors">
             <td class="px-6 py-4">
-                <img src="${date.image}" alt="${date.name}" class="w-16 h-16 rounded-lg object-cover">
+                <img src="${sanitizeImageSource(date.image)}" alt="${escapeHTML(date.name)}" class="w-16 h-16 rounded-lg object-cover">
             </td>
-            <td class="px-6 py-4 font-medium text-stone-800">${date.name}</td>
-            <td class="px-6 py-4 text-stone-600 text-sm max-w-xs truncate">${date.description}</td>
-            <td class="px-6 py-4 text-stone-600">${date.size}</td>
+            <td class="px-6 py-4 font-medium text-stone-800">${escapeHTML(date.name)}</td>
+            <td class="px-6 py-4 text-stone-600 text-sm max-w-xs truncate">${escapeHTML(date.description)}</td>
+            <td class="px-6 py-4 text-stone-600">${escapeHTML(date.size)}</td>
             <td class="px-6 py-4">
                 <span class="px-3 py-1 rounded-full text-xs font-semibold ${getClassColor(date.classification)}">
-                    ${date.classification}
+                    ${escapeHTML(date.classification)}
                 </span>
             </td>
             <td class="px-6 py-4">
                 <div class="flex gap-2">
-                    <button onclick="editDate(${date.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                    <button onclick="editDate(${Number(date.id)})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="deleteDate(${date.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <button onclick="deleteDate(${Number(date.id)})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
@@ -797,28 +898,28 @@ function loadCouncil() {
     grid.innerHTML = council.map(member => `
         <div class="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
             <div class="relative overflow-hidden h-48 bg-stone-100">
-                <img src="${member.image}" alt="${member.name}" class="w-full h-full object-cover">
+                <img src="${sanitizeImageSource(member.image)}" alt="${escapeHTML(member.name)}" class="w-full h-full object-cover">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <button onclick="editCouncil(${member.id})" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <button onclick="editCouncil(${Number(member.id)})" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="deleteCouncil(${member.id})" class="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                    <button onclick="deleteCouncil(${Number(member.id)})" class="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
             </div>
             <div class="p-4">
-                <h3 class="font-bold text-stone-800 mb-1">${member.name}</h3>
-                <p class="text-sm text-amber-600 font-semibold mb-2">${member.position}</p>
+                <h3 class="font-bold text-stone-800 mb-1">${escapeHTML(member.name)}</h3>
+                <p class="text-sm text-amber-600 font-semibold mb-2">${escapeHTML(member.position)}</p>
                 <div class="mb-3">
                     <span class="px-2 py-1 rounded-full text-xs font-semibold ${getCategoryColor(member.category)}">
-                        ${member.category}
+                        ${escapeHTML(member.category)}
                     </span>
                 </div>
-                <p class="text-stone-600 text-sm mb-3 line-clamp-2">${member.bio}</p>
+                <p class="text-stone-600 text-sm mb-3 line-clamp-2">${escapeHTML(member.bio)}</p>
                 <div class="space-y-1 text-xs text-stone-500">
-                    <p class="flex items-center gap-2"><i data-lucide="mail" class="w-3 h-3"></i> ${member.email}</p>
-                    <p class="flex items-center gap-2"><i data-lucide="phone" class="w-3 h-3"></i> ${member.phone}</p>
+                    <p class="flex items-center gap-2"><i data-lucide="mail" class="w-3 h-3"></i> ${escapeHTML(member.email)}</p>
+                    <p class="flex items-center gap-2"><i data-lucide="phone" class="w-3 h-3"></i> ${escapeHTML(member.phone)}</p>
                 </div>
             </div>
         </div>
@@ -1430,8 +1531,11 @@ function formatFileSize(bytes) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async function() {
-    // انتظر تهيئة Firebase الموحدة
-    await firebaseReadyPromise;
+    await firebaseReady;
+
+    if (!firebaseEnabled && firebaseInitError) {
+        alert('تعذر الاتصال بـ Firebase. البيانات تُحفَظ محليًا فقط في هذا المتصفح.');
+    }
 
     initializeData();
     updateDashboardStats();
