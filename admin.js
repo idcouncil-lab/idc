@@ -456,9 +456,14 @@ function toggleSidebar() {
     sidebar.classList.toggle('hidden');
 }
 
-function logout() {
+async function logout() {
     sessionStorage.removeItem('adminLoggedIn');
     sessionStorage.removeItem('adminUsername');
+    try {
+        const { getAuth, signOut } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js');
+        const { getApps, getApp } = await import('https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js');
+        if (getApps().length) await signOut(getAuth(getApp()));
+    } catch (e) {}
     window.location.href = 'admin-login.html';
 }
 
@@ -1607,43 +1612,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     };
 });
-// ===== تصدير الدوال إلى window لتعمل مع onclick في HTML =====
 Object.assign(window, {
-    showSection,
-    toggleSidebar,
-    logout,
-    openEventModal,
-    closeEventModal,
-    editEvent,
-    deleteEvent,
-    openDateModal,
-    closeDateModal,
-    editDate,
-    deleteDate,
-    loadMessages,
-    deleteMessage,
-    clearAllMessages,
-    loadSettings,
-    previewImage,
-    previewCouncilImage,
-    openCouncilModal,
-    closeCouncilModal,
-    saveCouncil,
-    editCouncil,
-    deleteCouncil,
+    showSection, toggleSidebar, logout,
+    openEventModal, closeEventModal, editEvent, deleteEvent,
+    openDateModal, closeDateModal, editDate, deleteDate,
+    loadMessages, deleteMessage, clearAllMessages, loadSettings,
+    previewImage, previewCouncilImage,
+    openCouncilModal, closeCouncilModal, saveCouncil, editCouncil, deleteCouncil,
     closeAllModals,
-    openStudiesModal,
-    closeStudiesModal,
-    saveStudies,
-    editStudy,
-    deleteStudy,
-    downloadStudy,
-    openAdsModal,
-    closeAdsModal,
-    saveAds,
-    editAd,
-    deleteAd,
-    previewStudiesFile,
-    previewAdsImage,
-    uploadFileToStorage,
+    openStudiesModal, closeStudiesModal, saveStudies, editStudy, deleteStudy, downloadStudy,
+    openAdsModal, closeAdsModal, saveAds, editAd, deleteAd,
+    previewStudiesFile, previewAdsImage,
 });
