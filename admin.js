@@ -12,15 +12,6 @@ const StorageKeys = {
 };
 
 // Data Management
-const firebaseConfig = {
-  apiKey: "AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o",
-  authDomain: "id-council-c1b1d.firebaseapp.com",
-  projectId: "id-council-c1b1d",
-  storageBucket: "id-council-c1b1d.firebasestorage.app",
-  messagingSenderId: "2987746191",
-  appId: "1:2987746191:web:e8f267db34eb0a903b21fa"
-};
-
 const FIREBASE_CONFIG = {
     apiKey: 'AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o',
     authDomain: 'id-council-c1b1d.firebaseapp.com',
@@ -465,9 +456,22 @@ function toggleSidebar() {
     sidebar.classList.toggle('hidden');
 }
 
-function logout() {
+async function logout() {
     sessionStorage.removeItem('adminLoggedIn');
     sessionStorage.removeItem('adminUsername');
+    try {
+        const [{ getAuth, signOut }, { getApps, getApp }] = await Promise.all([
+            import('https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js'),
+            import('https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js')
+        ]);
+        const apps = getApps();
+        if (apps.length > 0) {
+            const auth = getAuth(getApp());
+            await signOut(auth);
+        }
+    } catch (e) {
+        console.warn('تعذر تسجيل الخروج من Firebase:', e);
+    }
     window.location.href = 'admin-login.html';
 }
 
@@ -1067,13 +1071,7 @@ function deleteCouncil(id) {
     addRecentUpdate('تم حذف عضو من المجلس');
 }
 
-// Attach save handlers
-document.addEventListener('DOMContentLoaded', function() {
-    const councilForm = document.getElementById('councilForm');
-    if (councilForm) {
-        councilForm.addEventListener('submit', saveCouncil);
-    }
-});
+// Note: councilForm submit listener is registered in the main DOMContentLoaded below
 
 // Recent Updates Tracker
 function addRecentUpdate(text) {
@@ -1345,6 +1343,8 @@ function loadAds() {
             </div>
         `;
         }).join('');
+        
+        lucide.createIcons();
     } catch (error) {
         console.error('خطأ في تحميل الإعلانات:', error);
         alert('حدث خطأ أثناء تحميل الإعلانات: ' + error.message);
@@ -1560,6 +1560,18 @@ function formatFileSize(bytes) {
 document.addEventListener('DOMContentLoaded', async function() {
     await firebaseReady;
 
+    // تحديث مؤشر حالة Firebase
+    const statusEl = document.getElementById('firebaseStatus');
+    if (statusEl) {
+        if (firebaseEnabled) {
+            statusEl.innerHTML = '<span class="w-2 h-2 bg-green-500 rounded-full inline-block"></span> متصل بـ Firebase';
+            statusEl.className = 'flex items-center gap-1 text-xs text-green-600';
+        } else {
+            statusEl.innerHTML = '<span class="w-2 h-2 bg-red-500 rounded-full inline-block"></span> تخزين محلي';
+            statusEl.className = 'flex items-center gap-1 text-xs text-red-500';
+        }
+    }
+
     if (!firebaseEnabled && firebaseInitError) {
         alert('تعذر الاتصال بـ Firebase. البيانات تُحفَظ محليًا فقط في هذا المتصفح.');
     }
@@ -1588,6 +1600,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     const adsForm = document.getElementById('adsForm');
     if (adsForm) {
         adsForm.addEventListener('submit', saveAds);
+    }
+
+    const councilForm = document.getElementById('councilForm');
+    if (councilForm) {
+        councilForm.addEventListener('submit', saveCouncil);
     }
     
     // Close modals on outside click
