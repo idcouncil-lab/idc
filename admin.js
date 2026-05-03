@@ -286,9 +286,9 @@ function initializeData() {
     if (!getfirebase.getItem(StorageKeys.SETTINGS)) {
         const defaultSettings = {
             siteTitle: 'مجلس التمور العراقي',
-            email: 'idcouncil@gmail.com',
-            phone: '+964 770 123 4567',
-            address: 'بغداد، المنصور،',
+            email: 'idcouncil25@gmail.com',
+            phone: '+964 07816142711',
+            address: ' بغداد - ابونواس',
             aboutText: 'يعتبر مجلس التمور العراقي هيئة متخصصة تأسست بهدف تطوير وتنظيم صناعة التمور في العراق.'
         };
         getfirebase.setItem(StorageKeys.SETTINGS, JSON.stringify(defaultSettings));
