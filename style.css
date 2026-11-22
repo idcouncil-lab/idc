@@ -8,11 +8,6 @@ html {
     scroll-behavior: smooth;
 }
 
-.date-details-dialog::backdrop {
-    background: rgba(12, 10, 8, 0.72);
-    backdrop-filter: blur(3px);
-}
-
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
     width: 12px;

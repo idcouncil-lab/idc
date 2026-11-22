@@ -63,10 +63,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-function safeId(value) {
-    return String(value ?? '').replace(/[^A-Za-z0-9_-]/g, '');
-}
-
 function escapeHTML(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -353,14 +349,14 @@ async function loadAdsData() {
                 </div>
                 <h3 class="text-xl font-bold text-stone-800 mb-3">${escapeHTML(ad.title)}</h3>
                 <div class="text-stone-600 mb-3">
-                    <p class="ad-short-${safeId(ad.id)} line-clamp-2">${escapeHTML(ad.description)}</p>
-                    <p class="ad-full-${safeId(ad.id)} hidden leading-relaxed">${escapeHTML(ad.description)}</p>
+                    <p class="ad-short-${ad.id} line-clamp-2">${escapeHTML(ad.description)}</p>
+                    <p class="ad-full-${ad.id} hidden leading-relaxed">${escapeHTML(ad.description)}</p>
                 </div>
                 <div class="flex items-center gap-3 flex-wrap">
                     ${ad.description && ad.description.length > 80 ? `
-                    <button onclick="toggleAdDesc(${safeId(ad.id)})" id="ad-btn-${safeId(ad.id)}" class="inline-flex items-center gap-1 text-amber-600 hover:text-amber-700 font-semibold text-sm transition-colors">
-                        <i data-lucide="chevron-down" class="w-4 h-4" id="ad-icon-${safeId(ad.id)}"></i>
-                        <span id="ad-btn-text-${safeId(ad.id)}">${isEnglish ? 'Read More' : 'المزيد'}</span>
+                    <button onclick="toggleAdDesc(${ad.id})" id="ad-btn-${ad.id}" class="inline-flex items-center gap-1 text-amber-600 hover:text-amber-700 font-semibold text-sm transition-colors">
+                        <i data-lucide="chevron-down" class="w-4 h-4" id="ad-icon-${ad.id}"></i>
+                        <span id="ad-btn-text-${ad.id}">${isEnglish ? 'Read More' : 'المزيد'}</span>
                     </button>` : ''}
                     ${safeLink ? `<a href="${safeLink}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 font-semibold text-sm">
                         <i data-lucide="external-link" class="w-4 h-4"></i>
@@ -424,7 +420,7 @@ function showNotification(message, type = 'success') {
     notification.innerHTML = `
         <div class="flex items-center gap-3">
             <i data-lucide="${type === 'success' ? 'check-circle' : 'alert-circle'}" class="w-6 h-6"></i>
-            <span class="font-semibold">${escapeHTML(message)}</span>
+            <span class="font-semibold">${message}</span>
         </div>
     `;
     
@@ -553,24 +549,24 @@ async function loadEventsData() {
     container.innerHTML = events.map(event => `
         <div class="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all transform hover:-translate-y-2">
             <div class="h-40 overflow-hidden">
-                <img src="${sanitizeImageSource(event.image)}" alt="${escapeHTML(event.title)}" class="w-full h-full object-cover hover:scale-110 transition-transform duration-300">
+                <img src="${event.image}" alt="${event.title}" class="w-full h-full object-cover hover:scale-110 transition-transform duration-300">
             </div>
             <div class="p-6">
                 <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-lg font-bold text-stone-800">${escapeHTML(event.title)}</h3>
+                    <h3 class="text-lg font-bold text-stone-800">${event.title}</h3>
                     <span class="px-3 py-1 rounded-full text-xs font-semibold ${getEventBadgeColor(event.type)}">
-                        ${escapeHTML(event.type)}
+                        ${event.type}
                     </span>
                 </div>
-                <p class="text-stone-600 text-sm mb-4">${escapeHTML(event.description)}</p>
+                <p class="text-stone-600 text-sm mb-4">${event.description}</p>
                 <div class="flex items-center gap-4 text-sm text-stone-500 border-t border-stone-100 pt-4">
                     <div class="flex items-center gap-1">
                         <i data-lucide="calendar" class="w-4 h-4"></i>
-                        <span>${escapeHTML(event.date)}</span>
+                        <span>${event.date}</span>
                     </div>
                     <div class="flex items-center gap-1">
                         <i data-lucide="map-pin" class="w-4 h-4"></i>
-                        <span>${escapeHTML(event.location)}</span>
+                        <span>${event.location}</span>
                     </div>
                 </div>
             </div>
@@ -594,26 +590,26 @@ async function loadCouncilData() {
     container.innerHTML = council.map((member, index) => `
         <div class="bg-white/10 backdrop-blur-md rounded-2xl overflow-hidden hover:bg-white/20 transition-all group">
             <div class="relative overflow-hidden aspect-square">
-                <img src="${sanitizeImageSource(member.image)}" alt="${escapeHTML(member.name)}" class="w-full h-full object-contain bg-stone-200 group-hover:scale-110 transition-transform duration-300">
+                <img src="${member.image}" alt="${member.name}" class="w-full h-full object-contain bg-stone-200 group-hover:scale-110 transition-transform duration-300">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
                 <div class="absolute bottom-0 left-0 right-0 p-4 text-white">
-                    <h3 class="text-xl font-bold mb-1">${escapeHTML(member.name)}</h3>
-                    <p class="text-amber-300 font-semibold text-sm">${escapeHTML(member.position)}</p>
+                    <h3 class="text-xl font-bold mb-1">${member.name}</h3>
+                    <p class="text-amber-300 font-semibold text-sm">${member.position}</p>
                 </div>
                 <span class="absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500 text-white">
-                    ${escapeHTML(member.category)}
+                    ${member.category}
                 </span>
             </div>
             <div class="p-4 bg-stone-900">
-                <p class="text-stone-300 text-sm mb-3 line-clamp-2">${escapeHTML(member.bio)}</p>
+                <p class="text-stone-300 text-sm mb-3 line-clamp-2">${member.bio}</p>
                 <div class="space-y-2 text-xs text-stone-400 border-t border-stone-700 pt-3 mb-3">
                     <p class="flex items-center gap-2 hover:text-amber-400 transition-colors">
                         <i data-lucide="mail" class="w-3 h-3"></i> 
-                        <span>${escapeHTML(member.email)}</span>
+                        <span>${member.email}</span>
                     </p>
                     <p class="flex items-center gap-2">
                         <i data-lucide="phone" class="w-3 h-3"></i>
-                        <span>${escapeHTML(member.phone)}</span>
+                        <span>${member.phone}</span>
                     </p>
                 </div>
                 <button onclick="openMemberModal(${index})" class="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
@@ -675,7 +671,7 @@ function openMemberModal(index) {
     if (!member) return;
 
     const modal = document.getElementById('memberModal');
-    document.getElementById('modalImg').src = sanitizeImageSource(member.image);
+    document.getElementById('modalImg').src = member.image;
     document.getElementById('modalImg').alt = member.name;
     document.getElementById('modalCategory').textContent = member.category;
     document.getElementById('modalName').textContent = member.name;

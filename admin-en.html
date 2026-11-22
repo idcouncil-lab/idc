@@ -2,13 +2,10 @@
 <html lang="en" dir="ltr">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.emailjs.com https://www.gstatic.com; frame-src https://*.firebaseapp.com; object-src 'none'; base-uri 'self'; form-action 'self'">
-    <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel | Iraqi Dates Council</title>
-    <link rel="stylesheet" href="tailwind.css">
-    <script src="vendor/lucide-0.577.0.min.js"></script>
-    <meta name="robots" content="noindex, nofollow">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@0.525.0"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -27,11 +24,9 @@
 <body class="bg-stone-100 text-stone-800">
 
     <script>
-        // Page stays hidden until Firebase Auth confirms a real signed-in user.
-        // (sessionStorage is NOT a security control; real protection = Firestore/Storage rules.)
-        document.documentElement.style.visibility = 'hidden';
-        window.__revealAdmin = function () { document.documentElement.style.visibility = 'visible'; };
-        setTimeout(function () { if (document.documentElement.style.visibility === 'hidden') window.location.replace('admin-login.html'); }, 8000);
+        if (window.location.protocol !== 'file:' && sessionStorage.getItem('adminLoggedIn') !== 'true') {
+            window.location.href = 'admin-login.html';
+        }
     </script>
 
     <div class="flex h-screen overflow-hidden">
@@ -98,7 +93,7 @@
 
                 <div class="border-t border-stone-100 my-4"></div>
 
-                <a href="index-en.html" target="_blank" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-stone-50 transition-all text-stone-600 font-medium">
+                <a href="index-en.html" target="_blank" rel="noopener noreferrer" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-stone-50 transition-all text-stone-600 font-medium">
                     <i data-lucide="external-link" class="w-5 h-5"></i>
                     <span>View Website</span>
                 </a>
@@ -449,6 +444,15 @@
                         <label class="block text-stone-700 font-semibold mb-2">Description</label>
                         <textarea id="eventDesc" rows="3" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea>
                     </div>
+                    <details class="rounded-lg border border-stone-200 p-4" dir="rtl">
+                        <summary class="cursor-pointer font-semibold text-stone-700">البيانات العربية</summary>
+                        <div class="space-y-3 pt-4">
+                            <input type="text" id="eventTitleAr" placeholder="عنوان الفعالية" class="w-full px-4 py-3 rounded-xl border border-stone-200">
+                            <div class="grid grid-cols-2 gap-3"><input type="text" id="eventDateAr" placeholder="التاريخ" class="w-full px-4 py-3 rounded-xl border border-stone-200"><input type="text" id="eventLocationAr" placeholder="المكان" class="w-full px-4 py-3 rounded-xl border border-stone-200"></div>
+                            <select id="eventTypeAr" class="w-full px-4 py-3 rounded-xl border border-stone-200"><option value="سنوي">سنوي</option><option value="نصف سنوي">نصف سنوي</option><option value="مستمر">مستمر</option><option value="مرة واحدة">مرة واحدة</option></select>
+                            <textarea id="eventDescAr" rows="3" placeholder="الوصف" class="w-full px-4 py-3 rounded-xl border border-stone-200"></textarea>
+                        </div>
+                    </details>
                     <div>
                         <label class="block text-stone-700 font-semibold mb-2">Event Image</label>
                         <div class="border-2 border-dashed border-stone-300 rounded-xl p-6 text-center hover:border-amber-500 transition-colors">
@@ -509,6 +513,14 @@
                         <label class="block text-stone-700 font-semibold mb-2">Description</label>
                         <textarea id="dateDesc" rows="3" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea>
                     </div>
+                    <details class="rounded-lg border border-stone-200 p-4" dir="rtl">
+                        <summary class="cursor-pointer font-semibold text-stone-700">البيانات العربية</summary>
+                        <div class="space-y-3 pt-4">
+                            <input type="text" id="dateNameAr" placeholder="اسم التمر" class="w-full px-4 py-3 rounded-xl border border-stone-200">
+                            <div class="grid grid-cols-2 gap-3"><input type="text" id="dateSizeAr" placeholder="الحجم" class="w-full px-4 py-3 rounded-xl border border-stone-200"><input type="text" id="dateClassAr" placeholder="التصنيف" class="w-full px-4 py-3 rounded-xl border border-stone-200"></div>
+                            <textarea id="dateDescAr" rows="3" placeholder="الوصف" class="w-full px-4 py-3 rounded-xl border border-stone-200"></textarea>
+                        </div>
+                    </details>
                     <div>
                         <label class="block text-stone-700 font-semibold mb-2">Date Image</label>
                         <div class="border-2 border-dashed border-stone-300 rounded-xl p-6 text-center hover:border-amber-500 transition-colors">
@@ -562,6 +574,15 @@
                         <label class="block text-stone-700 font-semibold mb-2">Bio</label>
                         <textarea id="councilBio" rows="3" placeholder="Member info and experience" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea>
                     </div>
+                    <details class="rounded-lg border border-stone-200 p-4" dir="rtl">
+                        <summary class="cursor-pointer font-semibold text-stone-700">البيانات العربية</summary>
+                        <div class="space-y-3 pt-4">
+                            <input type="text" id="councilNameAr" placeholder="اسم العضو" class="w-full px-4 py-3 rounded-xl border border-stone-200">
+                            <input type="text" id="councilPositionAr" placeholder="الموقع في المجلس" class="w-full px-4 py-3 rounded-xl border border-stone-200">
+                            <input type="text" id="councilCategoryAr" placeholder="التصنيف" class="w-full px-4 py-3 rounded-xl border border-stone-200">
+                            <textarea id="councilBioAr" rows="3" placeholder="نبذة عن العضو" class="w-full px-4 py-3 rounded-xl border border-stone-200"></textarea>
+                        </div>
+                    </details>
                     <div>
                         <label class="block text-stone-700 font-semibold mb-2">Email</label>
                         <input type="email" id="councilEmail" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all">
@@ -610,6 +631,10 @@
                         <label class="block text-stone-700 font-semibold mb-2">Description</label>
                         <textarea id="studiesDescription" rows="3" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea>
                     </div>
+                    <details class="rounded-lg border border-stone-200 p-4" dir="rtl">
+                        <summary class="cursor-pointer font-semibold text-stone-700">البيانات العربية</summary>
+                        <div class="space-y-3 pt-4"><input type="text" id="studiesTitleAr" placeholder="عنوان الدراسة" class="w-full px-4 py-3 rounded-xl border border-stone-200"><textarea id="studiesDescriptionAr" rows="3" placeholder="وصف الدراسة" class="w-full px-4 py-3 rounded-xl border border-stone-200"></textarea></div>
+                    </details>
                     <div>
                         <label class="block text-stone-700 font-semibold mb-2">PDF File *</label>
                         <input type="file" id="studiesFile" accept=".pdf" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
@@ -651,6 +676,14 @@
                         <label class="block text-stone-700 font-semibold mb-2">Description</label>
                         <textarea id="adsDescription" rows="3" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea>
                     </div>
+                    <details class="rounded-lg border border-stone-200 p-4" dir="rtl">
+                        <summary class="cursor-pointer font-semibold text-stone-700">البيانات العربية</summary>
+                        <div class="space-y-3 pt-4">
+                            <input type="text" id="adsTitleAr" placeholder="عنوان الإعلان" class="w-full px-4 py-3 rounded-xl border border-stone-200">
+                            <textarea id="adsDescriptionAr" rows="3" placeholder="وصف الإعلان" class="w-full px-4 py-3 rounded-xl border border-stone-200"></textarea>
+                            <input type="text" id="adsTypeAr" placeholder="نوع الإعلان" class="w-full px-4 py-3 rounded-xl border border-stone-200">
+                        </div>
+                    </details>
                     <div>
                         <label class="block text-stone-700 font-semibold mb-2">Ad Image *</label>
                         <input type="file" id="adsImage" accept="image/*" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
@@ -687,7 +720,6 @@
         </div>
     </div>
 
-    <script src="upload-guard.js"></script>
     <script src="admin-en.js"></script>
     <script>
         lucide.createIcons();

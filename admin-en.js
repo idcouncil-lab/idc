@@ -14,6 +14,15 @@ const StorageKeys = {
     MESSAGES: 'iraq_dates_messages_en',
 };
 
+const ArabicStorageKeys = {
+    EVENTS: 'iraq_dates_events',
+    DATES: 'iraq_dates_types',
+    COUNCIL: 'iraq_dates_council',
+    STUDIES: 'iraq_dates_studies',
+    ADS: 'iraq_dates_ads',
+    SETTINGS: 'iraq_dates_settings'
+};
+
 // ── Firebase config ──────────────────────────────────────────────────
 const FIREBASE_CFG = {
     apiKey:            'AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o',
@@ -30,17 +39,6 @@ const cache = new Map();
 let fsDocApi   = null;
 let fbEnabled  = false;
 
-function isEmptyJsonContainer(value) {
-    if (value === null || value === undefined || value === 'null' || value === '') return true;
-    try {
-        const parsed = JSON.parse(String(value));
-        return (Array.isArray(parsed) && parsed.length === 0)
-            || (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.keys(parsed).length === 0);
-    } catch {
-        return false;
-    }
-}
-
 const store = {
     get(key) {
         if (cache.has(key)) return cache.get(key);
@@ -52,8 +50,8 @@ const store = {
         try {
             localStorage.setItem(key, v);
         } catch (err) {
-            console.error('localStorage.setItem failed for', key, err);
-            addUpdate('Failed to save local data: ' + key);
+            console.error('localStorage.setItem quota exceeded for', key, err);
+            addUpdate('Local storage full — failed to save: ' + key);
         }
         if (fsDocApi) fsDocApi.set(key, v).catch(e => console.error('FB write', key, e));
     },
@@ -63,16 +61,65 @@ const store = {
         if (fsDocApi) fsDocApi.remove(key).catch(() => {});
     },
     getJSON(key, fallback = []) {
-        try {
-            return JSON.parse(this.get(key) || 'null') ?? fallback;
-        } catch (err) {
-            console.warn(`Invalid JSON detected for ${key}, clearing corrupt storage`, err);
-            this.remove(key);
-            return fallback;
-        }
+        try { return JSON.parse(this.get(key) || 'null') ?? fallback; }
+        catch { return fallback; }
     },
     setJSON(key, val) { this.set(key, JSON.stringify(val)); },
 };
+
+function syncArabicRecord(englishKey, arabicKey, englishRecord, arabicValues = {}) {
+    const arabicRecords = store.getJSON(arabicKey, []);
+    const index = arabicRecords.findIndex(record => Number(record.id) === Number(englishRecord.id));
+    const current = index === -1 ? {} : arabicRecords[index];
+    const arabicValue = (field, fallback) => arabicValues[field] || current[field] || fallback || '';
+    const arabicRecord = {
+        ...current,
+        id: englishRecord.id,
+        title: arabicValue('title', englishRecord.title),
+        name: arabicValue('name', englishRecord.name),
+        date: arabicValue('date', englishRecord.date),
+        location: arabicValue('location', englishRecord.location),
+        type: arabicValue('type', englishRecord.type),
+        description: arabicValue('description', englishRecord.description),
+        classification: arabicValue('classification', englishRecord.classification),
+        size: arabicValue('size', englishRecord.size),
+        position: arabicValue('position', englishRecord.position),
+        category: arabicValue('category', englishRecord.category),
+        bio: arabicValue('bio', englishRecord.bio),
+        email: englishRecord.email || current.email,
+        phone: englishRecord.phone || current.phone,
+        image: englishRecord.image || current.image,
+        link: englishRecord.link || current.link,
+        file: englishRecord.file || current.file,
+        fileName: englishRecord.fileName || current.fileName,
+        fileType: englishRecord.fileType || current.fileType,
+        fileData: englishRecord.fileData || current.fileData
+    };
+    if (index === -1) arabicRecords.push(arabicRecord);
+    else arabicRecords[index] = arabicRecord;
+    store.setJSON(englishKey, store.getJSON(englishKey, []));
+    store.setJSON(arabicKey, arabicRecords);
+}
+
+function populateArabicFields(storageKey, id, fieldMap) {
+    const record = store.getJSON(storageKey, []).find(item => Number(item.id) === Number(id));
+    Object.entries(fieldMap).forEach(([elementId, field]) => {
+        const input = document.getElementById(elementId);
+        if (input) input.value = record?.[field] || '';
+    });
+}
+
+function removeArabicRecord(englishKey, arabicKey, id) {
+    store.setJSON(englishKey, store.getJSON(englishKey, []).filter(record => Number(record.id) !== Number(id)));
+    store.setJSON(arabicKey, store.getJSON(arabicKey, []).filter(record => Number(record.id) !== Number(id)));
+}
+
+function upsertRecord(records, record) {
+    const index = records.findIndex(item => Number(item.id) === Number(record.id));
+    if (index === -1) records.push(record);
+    else records[index] = record;
+    return records;
+}
 
 // ── Firebase init ────────────────────────────────────────────────────
 const fbReady = (async () => {
@@ -94,10 +141,13 @@ const fbReady = (async () => {
             const unsub = onAuthStateChanged(auth, user => {
                 unsub();
                 if (!user) {
+                    if (window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        console.warn('No Firebase auth user; continuing in local-only admin mode.');
+                        res(null);
+                        return;
+                    }
                     location.href = 'admin-login.html';
-                    return;
                 } else {
-                    if (window.__revealAdmin) window.__revealAdmin();
                     res(user);
                 }
             });
@@ -111,37 +161,19 @@ const fbReady = (async () => {
         };
 
         // Sync all keys
-        await Promise.all(Object.values(StorageKeys).map(async key => {
+        await Promise.all([...Object.values(StorageKeys), ...Object.values(ArabicStorageKeys)].map(async key => {
             const snap = await getDoc(doc(db, FS_COL, key));
-            const local = localStorage.getItem(key);
             if (snap.exists()) {
-                const value = snap.data().value;
-                const remoteValue = value === null || value === undefined ? null : String(value);
-
-                if (remoteValue !== null && !isEmptyJsonContainer(remoteValue)) {
-                    cache.set(key, remoteValue);
-                    localStorage.setItem(key, remoteValue);
-                } else if (local !== null && !isEmptyJsonContainer(local)) {
-                    cache.set(key, local);
-                    await fsDocApi.set(key, local);
-                } else if (remoteValue !== null) {
-                    cache.set(key, remoteValue);
-                    localStorage.setItem(key, remoteValue);
-                }
+                const v = String(snap.data().value ?? '');
+                cache.set(key, v); localStorage.setItem(key, v);
             } else {
-                if (local !== null) {
-                    cache.set(key, local);
-                    await fsDocApi.set(key, local);
-                }
+                const local = localStorage.getItem(key);
+                if (local !== null) { cache.set(key, local); await fsDocApi.set(key, local); }
             }
             onSnapshot(doc(db, FS_COL, key), next => {
-                if (!next.exists()) return;
-                const value = next.data().value;
-                const remoteValue = value === null || value === undefined ? null : String(value);
-                if (remoteValue === null) return;
-                if (isEmptyJsonContainer(remoteValue) && local !== null && !isEmptyJsonContainer(local)) return;
-                cache.set(key, remoteValue);
-                localStorage.setItem(key, remoteValue);
+                if (!next.exists()) { cache.delete(key); localStorage.removeItem(key); return; }
+                const v = String(next.data().value ?? '');
+                cache.set(key, v); localStorage.setItem(key, v);
             });
         }));
 
@@ -158,57 +190,9 @@ const trim       = v => String(v ?? '').trim();
 const safeUrl    = v => { const r = trim(v); if (!r) return ''; try { const u = new URL(r, location.href); return ['http:','https:'].includes(u.protocol) ? u.href : ''; } catch { return ''; } };
 const safeImg    = v => { const r = trim(v); if (!r) return ''; if (/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(r)) return r; try { const u = new URL(r, location.href); return ['http:','https:'].includes(u.protocol) ? u.href : ''; } catch { return ''; } };
 const fmtSize    = b => { if (!b) return '0 B'; const k=1024, s=['B','KB','MB','GB']; const i=Math.floor(Math.log(b)/Math.log(k)); return (b/Math.pow(k,i)).toFixed(2)+' '+s[i]; };
-const MAX_IMAGE_BYTES = 180 * 1024;
-const MAX_IMAGE_WIDTH = 1200;
-function validateImageFile(file, label) {
-    if (!file) return true;
-    if (file.size > MAX_IMAGE_BYTES) {
-        alert(`${label} image is too large. Please choose an image smaller than ${Math.round(MAX_IMAGE_BYTES / 1024)} KB.`);
-        return false;
-    }
-    return true;
-}
-async function readFile(file) {
-    return new Promise((res, rej) => {
-        const reader = new FileReader();
-        reader.onload = e => res(e.target.result);
-        reader.onerror = rej;
-        reader.readAsDataURL(file);
-    });
-}
-function loadImage(src) {
-    return new Promise((res, rej) => {
-        const img = new Image();
-        img.onload = () => res(img);
-        img.onerror = rej;
-        img.src = src;
-    });
-}
-async function compressImageDataUrl(dataUrl, maxWidth = MAX_IMAGE_WIDTH, quality = 0.75) {
-    const img = await loadImage(dataUrl);
-    const scale = Math.min(1, maxWidth / img.width);
-    const width = Math.round(img.width * scale);
-    const height = Math.round(img.height * scale);
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, width, height);
-    return canvas.toDataURL('image/jpeg', quality);
-}
-async function prepareImageFile(file) {
-    if (!file) return '';
-    const dataUrl = await readFile(file);
-    if (file.size <= MAX_IMAGE_BYTES) return dataUrl;
-    try {
-        const compressed = await compressImageDataUrl(dataUrl);
-        return compressed;
-    } catch (err) {
-        console.warn('Image compression failed, using original image', err);
-        return dataUrl;
-    }
-}
+const readFile   = f => new Promise((res,rej) => { const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(f); });
 const nextId     = arr => Math.max(0, ...arr.map(x => x.id || 0)) + 1;
+
 function addUpdate(text) {
     const list = JSON.parse(localStorage.getItem('iraq_admin_en_updates') || '[]');
     list.unshift({ text, time: new Date().toLocaleString('en-US') });
@@ -330,8 +314,8 @@ function loadEvents() {
             <td class="px-6 py-4 text-stone-600">${esc(ev.location)}</td>
             <td class="px-6 py-4">${badge(TYPE_COLORS,ev.type)}</td>
             <td class="px-6 py-4"><div class="flex gap-2">
-                <button onclick="editEvent(${Number(ev.id)||0})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
-                <button onclick="deleteEvent(${Number(ev.id)||0})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                <button onclick="editEvent(${ev.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                <button onclick="deleteEvent(${ev.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div></td>
         </tr>`).join('');
     lucide.createIcons();
@@ -342,16 +326,16 @@ function openEventModal(id=null) {
     document.getElementById('eventModalTitle').textContent = id ? 'Edit Event' : 'Add New Event';
     document.getElementById('eventId').value = '';
     if (id) {
-        const ev = store.getJSON(StorageKeys.EVENTS,[]).find(e=>e.id===id);
-        if (ev) {
-            document.getElementById('eventId').value = ev.id;
-            document.getElementById('eventTitle').value    = ev.title;
-            document.getElementById('eventDate').value     = ev.date;
-            document.getElementById('eventLocation').value = ev.location;
-            document.getElementById('eventType').value     = ev.type;
-            document.getElementById('eventDesc').value     = ev.description;
-            populateImage('eventPreview', ev.image);
-        }
+        const ev = store.getJSON(StorageKeys.EVENTS,[]).find(e=>Number(e.id)===Number(id));
+        if (!ev) { alert('This event no longer exists. Refresh the page and try again.'); return; }
+        document.getElementById('eventId').value = ev.id;
+        document.getElementById('eventTitle').value    = ev.title;
+        document.getElementById('eventDate').value     = ev.date;
+        document.getElementById('eventLocation').value = ev.location;
+        document.getElementById('eventType').value     = ev.type;
+        document.getElementById('eventDesc').value     = ev.description;
+        populateImage('eventPreview', ev.image);
+        populateArabicFields(ArabicStorageKeys.EVENTS, ev.id, { eventTitleAr:'title', eventDateAr:'date', eventLocationAr:'location', eventTypeAr:'type', eventDescAr:'description' });
     }
     openModal('eventModal');
 }
@@ -359,8 +343,7 @@ function closeEventModal() { document.getElementById('eventModal').classList.add
 function editEvent(id) { openEventModal(id); }
 function deleteEvent(id) {
     if (!confirm('Delete this event?')) return;
-    const arr = store.getJSON(StorageKeys.EVENTS,[]).filter(e=>e.id!==id);
-    store.setJSON(StorageKeys.EVENTS, arr);
+    removeArabicRecord(StorageKeys.EVENTS, ArabicStorageKeys.EVENTS, id);
     loadEvents(); updateStats(); addUpdate('Event deleted');
 }
 
@@ -380,8 +363,8 @@ function loadDates() {
             <td class="px-6 py-4 text-stone-600">${esc(d.size)}</td>
             <td class="px-6 py-4">${badge(CLASS_COLORS,d.classification)}</td>
             <td class="px-6 py-4"><div class="flex gap-2">
-                <button onclick="editDate(${Number(d.id)||0})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
-                <button onclick="deleteDate(${Number(d.id)||0})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                <button onclick="editDate(${d.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                <button onclick="deleteDate(${d.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div></td>
         </tr>`).join('');
     lucide.createIcons();
@@ -392,15 +375,15 @@ function openDateModal(id=null) {
     document.getElementById('dateModalTitle').textContent = id ? 'Edit Variety' : 'Add New Variety';
     document.getElementById('dateId').value = '';
     if (id) {
-        const d = store.getJSON(StorageKeys.DATES,[]).find(x=>x.id===id);
-        if (d) {
-            document.getElementById('dateId').value = d.id;
-            document.getElementById('dateName').value  = d.name;
-            document.getElementById('dateSize').value  = d.size;
-            document.getElementById('dateClass').value = d.classification;
-            document.getElementById('dateDesc').value  = d.description;
-            populateImage('datePreview', d.image);
-        }
+        const d = store.getJSON(StorageKeys.DATES,[]).find(x=>Number(x.id)===Number(id));
+        if (!d) { alert('This date variety no longer exists. Refresh the page and try again.'); return; }
+        document.getElementById('dateId').value = d.id;
+        document.getElementById('dateName').value  = d.name;
+        document.getElementById('dateSize').value  = d.size;
+        document.getElementById('dateClass').value = d.classification;
+        document.getElementById('dateDesc').value  = d.description;
+        populateImage('datePreview', d.image);
+        populateArabicFields(ArabicStorageKeys.DATES, d.id, { dateNameAr:'name', dateSizeAr:'size', dateClassAr:'classification', dateDescAr:'description' });
     }
     openModal('dateModal');
 }
@@ -408,8 +391,7 @@ function closeDateModal() { document.getElementById('dateModal').classList.add('
 function editDate(id) { openDateModal(id); }
 function deleteDate(id) {
     if (!confirm('Delete this variety?')) return;
-    const arr = store.getJSON(StorageKeys.DATES,[]).filter(d=>d.id!==id);
-    store.setJSON(StorageKeys.DATES, arr);
+    removeArabicRecord(StorageKeys.DATES, ArabicStorageKeys.DATES, id);
     loadDates(); updateStats(); addUpdate('Date variety deleted');
 }
 
@@ -426,8 +408,8 @@ function loadCouncil() {
             <div class="relative h-48 bg-stone-100 group">
                 <img src="${safeImg(m.image)||'https://placehold.co/400x300?text=Member'}" class="w-full h-full object-cover" alt="">
                 <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <button onclick="editCouncil(${Number(m.id)||0})" class="p-2 bg-blue-600 text-white rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
-                    <button onclick="deleteCouncil(${Number(m.id)||0})" class="p-2 bg-red-600 text-white rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <button onclick="editCouncil(${m.id})" class="p-2 bg-blue-600 text-white rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                    <button onclick="deleteCouncil(${m.id})" class="p-2 bg-red-600 text-white rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>
             </div>
             <div class="p-4">
@@ -447,17 +429,17 @@ function openCouncilModal(id=null) {
     document.getElementById('councilModalTitle').textContent = id ? 'Edit Member' : 'Add New Member';
     document.getElementById('councilId').value = '';
     if (id) {
-        const m = store.getJSON(StorageKeys.COUNCIL,[]).find(x=>x.id===id);
-        if (m) {
-            document.getElementById('councilId').value       = m.id;
-            document.getElementById('councilName').value     = m.name;
-            document.getElementById('councilPosition').value = m.position;
-            document.getElementById('councilCategory').value = m.category;
-            document.getElementById('councilBio').value      = m.bio;
-            document.getElementById('councilEmail').value    = m.email||'';
-            document.getElementById('councilPhone').value    = m.phone||'';
-            populateImage('councilPreview', m.image);
-        }
+        const m = store.getJSON(StorageKeys.COUNCIL,[]).find(x=>Number(x.id)===Number(id));
+        if (!m) { alert('This council member no longer exists. Refresh the page and try again.'); return; }
+        document.getElementById('councilId').value       = m.id;
+        document.getElementById('councilName').value     = m.name;
+        document.getElementById('councilPosition').value = m.position;
+        document.getElementById('councilCategory').value = m.category;
+        document.getElementById('councilBio').value      = m.bio;
+        document.getElementById('councilEmail').value    = m.email||'';
+        document.getElementById('councilPhone').value    = m.phone||'';
+        populateImage('councilPreview', m.image);
+        populateArabicFields(ArabicStorageKeys.COUNCIL, m.id, { councilNameAr:'name', councilPositionAr:'position', councilCategoryAr:'category', councilBioAr:'bio' });
     }
     openModal('councilModal');
 }
@@ -465,8 +447,7 @@ function closeCouncilModal() { document.getElementById('councilModal').classList
 function editCouncil(id) { openCouncilModal(id); }
 function deleteCouncil(id) {
     if (!confirm('Delete this member?')) return;
-    const arr = store.getJSON(StorageKeys.COUNCIL,[]).filter(m=>m.id!==id);
-    store.setJSON(StorageKeys.COUNCIL, arr);
+    removeArabicRecord(StorageKeys.COUNCIL, ArabicStorageKeys.COUNCIL, id);
     loadCouncil(); updateStats(); addUpdate('Council member deleted');
 }
 
@@ -487,21 +468,21 @@ function loadStudies() {
             <td class="px-6 py-4 text-stone-600 text-sm">${esc(s.date||'—')}</td>
             <td class="px-6 py-4">
                 ${s.fileData
-                    ? `<button onclick="downloadStudyAdmin(${Number(s.id)||0})" class="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-sm font-semibold">
+                    ? `<button onclick="downloadStudyAdmin(${s.id})" class="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-sm font-semibold">
                          <i data-lucide="download" class="w-4 h-4"></i>${esc(s.fileName||'Download')}
                        </button>`
                     : '<span class="text-stone-300 text-sm">No file</span>'}
             </td>
             <td class="px-6 py-4 text-center"><div class="flex gap-2 justify-center">
-                <button onclick="editStudy(${Number(s.id)||0})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
-                <button onclick="deleteStudy(${Number(s.id)||0})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                <button onclick="editStudy(${s.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                <button onclick="deleteStudy(${s.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div></td>
         </tr>`).join('');
     lucide.createIcons();
 }
 
 function downloadStudyAdmin(id) {
-    const s = store.getJSON(StorageKeys.STUDIES,[]).find(x=>x.id===id);
+    const s = store.getJSON(StorageKeys.STUDIES,[]).find(x=>Number(x.id)===Number(id));
     if (!s?.fileData) { alert('File not available.'); return; }
     const a=document.createElement('a'); a.href=s.fileData; a.download=s.fileName||'study.pdf';
     document.body.appendChild(a); a.click(); a.remove();
@@ -513,24 +494,24 @@ function openStudiesModal(id=null) {
     document.getElementById('studiesModalTitle').textContent = id ? 'Edit Study' : 'Add New Study';
     document.getElementById('studiesId').value = '';
     const fileInput = document.getElementById('studiesFile');
+    if (fileInput) fileInput.required = !id;
     if (id) {
-        const s = store.getJSON(StorageKeys.STUDIES,[]).find(x=>x.id===id);
-        if (s) {
-            document.getElementById('studiesId').value          = s.id;
-            document.getElementById('studiesTitle').value       = s.title;
-            document.getElementById('studiesDescription').value = s.description||'';
-            document.getElementById('studiesDate').value        = s.date||'';
-            if (fileInput) fileInput.required = false;
-        }
-    } else if (fileInput) { fileInput.required = true; }
+        const s = store.getJSON(StorageKeys.STUDIES,[]).find(x=>Number(x.id)===Number(id));
+        if (!s) { alert('This study no longer exists. Refresh the page and try again.'); return; }
+        document.getElementById('studiesId').value          = s.id;
+        document.getElementById('studiesTitle').value       = s.title;
+        document.getElementById('studiesDescription').value = s.description||'';
+        document.getElementById('studiesDate').value        = s.date||'';
+        populateArabicFields(ArabicStorageKeys.STUDIES, s.id, { studiesTitleAr:'title', studiesDescriptionAr:'description' });
+        if (fileInput) fileInput.required = false;
+    }
     openModal('studiesModal');
 }
 function closeStudiesModal() { document.getElementById('studiesModal').classList.add('hidden'); }
 function editStudy(id) { openStudiesModal(id); }
 function deleteStudy(id) {
     if (!confirm('Delete this study?')) return;
-    const arr = store.getJSON(StorageKeys.STUDIES,[]).filter(s=>s.id!==id);
-    store.setJSON(StorageKeys.STUDIES, arr);
+    removeArabicRecord(StorageKeys.STUDIES, ArabicStorageKeys.STUDIES, id);
     loadStudies(); updateStats(); addUpdate('Study deleted');
 }
 
@@ -554,8 +535,8 @@ function loadAds() {
                 <p class="text-stone-500 text-sm line-clamp-2 mb-3">${esc(ad.description||'')}</p>
                 ${ad.link?`<a href="${safeUrl(ad.link)}" target="_blank" class="text-xs text-blue-500 hover:underline block mb-3 truncate">${esc(ad.link)}</a>`:''}
                 <div class="flex gap-2">
-                    <button onclick="editAd(${Number(ad.id)||0})" class="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">Edit</button>
-                    <button onclick="deleteAd(${Number(ad.id)||0})" class="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700">Delete</button>
+                    <button onclick="editAd(${ad.id})" class="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">Edit</button>
+                    <button onclick="deleteAd(${ad.id})" class="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700">Delete</button>
                 </div>
             </div>
         </div>`).join('');
@@ -568,27 +549,27 @@ function openAdsModal(id=null) {
     document.getElementById('adsModalTitle').textContent = id ? 'Edit Advertisement' : 'Add New Advertisement';
     document.getElementById('adsId').value = '';
     const imgInput = document.getElementById('adsImage');
+    if (imgInput) imgInput.required = !id;
     if (id) {
-        const ad = store.getJSON(StorageKeys.ADS,[]).find(a=>a.id===id);
-        if (ad) {
-            document.getElementById('adsId').value          = ad.id;
-            document.getElementById('adsTitle').value       = ad.title;
-            document.getElementById('adsDescription').value = ad.description||'';
-            document.getElementById('adsType').value        = ad.type;
-            document.getElementById('adsDate').value        = ad.date||'';
-            document.getElementById('adsLink').value        = ad.link||'';
-            populateImage('adsPreview', ad.image);
-            if (imgInput) imgInput.required = false;
-        }
-    } else if (imgInput) { imgInput.required = true; }
+        const ad = store.getJSON(StorageKeys.ADS,[]).find(a=>Number(a.id)===Number(id));
+        if (!ad) { alert('This advertisement no longer exists. Refresh the page and try again.'); return; }
+        document.getElementById('adsId').value          = ad.id;
+        document.getElementById('adsTitle').value       = ad.title;
+        document.getElementById('adsDescription').value = ad.description||'';
+        document.getElementById('adsType').value        = ad.type;
+        document.getElementById('adsDate').value        = ad.date||'';
+        document.getElementById('adsLink').value        = ad.link||'';
+        populateImage('adsPreview', ad.image);
+        populateArabicFields(ArabicStorageKeys.ADS, ad.id, { adsTitleAr:'title', adsDescriptionAr:'description', adsTypeAr:'type' });
+        if (imgInput) imgInput.required = false;
+    }
     openModal('adsModal');
 }
 function closeAdsModal() { document.getElementById('adsModal').classList.add('hidden'); }
 function editAd(id) { openAdsModal(id); }
 function deleteAd(id) {
     if (!confirm('Delete this advertisement?')) return;
-    const arr = store.getJSON(StorageKeys.ADS,[]).filter(a=>a.id!==id);
-    store.setJSON(StorageKeys.ADS, arr);
+    removeArabicRecord(StorageKeys.ADS, ArabicStorageKeys.ADS, id);
     loadAds(); updateStats(); addUpdate('Advertisement deleted');
 }
 
@@ -617,7 +598,7 @@ function loadMessages() {
                     <p class="text-stone-700 leading-relaxed">${esc(m.message)}</p>
                     ${m.time?`<p class="text-stone-400 text-xs mt-3">${esc(m.time)}</p>`:''}
                 </div>
-                <button onclick="deleteMessage(${Number(m.id)||0})" class="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors shrink-0">
+                <button onclick="deleteMessage(${m.id})" class="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors shrink-0">
                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                 </button>
             </div>
@@ -707,9 +688,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         const id = parseInt(document.getElementById('eventId').value);
         const preview = document.getElementById('eventPreview');
         const imgFile = document.getElementById('eventImage').files[0];
-        if (imgFile && !validateImageFile(imgFile, 'Event')) return;
         let imgData = preview.src && !preview.classList.contains('hidden') ? preview.src : '';
-        if (imgFile) imgData = await prepareImageFile(imgFile);
+        if (imgFile) imgData = await readFile(imgFile);
         const data = {
             id: id || Date.now(),
             title:       trim(document.getElementById('eventTitle').value),
@@ -720,11 +700,17 @@ document.addEventListener('DOMContentLoaded', async function () {
             image: imgData,
         };
         const arr = store.getJSON(StorageKeys.EVENTS,[]);
-        if (id) { const i=arr.findIndex(x=>x.id===id); if(i>-1) arr[i]=data; }
-        else arr.push(data);
+        upsertRecord(arr, data);
         store.setJSON(StorageKeys.EVENTS, arr);
+        syncArabicRecord(StorageKeys.EVENTS, ArabicStorageKeys.EVENTS, data, {
+            title: trim(document.getElementById('eventTitleAr').value),
+            date: trim(document.getElementById('eventDateAr').value),
+            location: trim(document.getElementById('eventLocationAr').value),
+            type: trim(document.getElementById('eventTypeAr').value),
+            description: trim(document.getElementById('eventDescAr').value)
+        });
         closeEventModal(); loadEvents(); updateStats();
-        addUpdate(`Event ${id?'updated':'added'}: ${esc(data.title)}`);
+        addUpdate(`Event ${id?'updated':'added'}: ${data.title}`);
     });
 
     // ── Date form ──────────────────────────────────────────────────
@@ -733,9 +719,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         const id = parseInt(document.getElementById('dateId').value);
         const preview = document.getElementById('datePreview');
         const imgFile = document.getElementById('dateImage').files[0];
-        if (imgFile && !validateImageFile(imgFile, 'Date variety')) return;
         let imgData = preview.src && !preview.classList.contains('hidden') ? preview.src : '';
-        if (imgFile) imgData = await prepareImageFile(imgFile);
+        if (imgFile) imgData = await readFile(imgFile);
         const data = {
             id: id || Date.now(),
             name:           trim(document.getElementById('dateName').value),
@@ -745,11 +730,16 @@ document.addEventListener('DOMContentLoaded', async function () {
             image: imgData,
         };
         const arr = store.getJSON(StorageKeys.DATES,[]);
-        if (id) { const i=arr.findIndex(x=>x.id===id); if(i>-1) arr[i]=data; }
-        else arr.push(data);
+        upsertRecord(arr, data);
         store.setJSON(StorageKeys.DATES, arr);
+        syncArabicRecord(StorageKeys.DATES, ArabicStorageKeys.DATES, data, {
+            name: trim(document.getElementById('dateNameAr').value),
+            size: trim(document.getElementById('dateSizeAr').value),
+            classification: trim(document.getElementById('dateClassAr').value),
+            description: trim(document.getElementById('dateDescAr').value)
+        });
         closeDateModal(); loadDates(); updateStats();
-        addUpdate(`Date variety ${id?'updated':'added'}: ${esc(data.name)}`);
+        addUpdate(`Date variety ${id?'updated':'added'}: ${data.name}`);
     });
 
     // ── Council form ───────────────────────────────────────────────
@@ -758,9 +748,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         const id = parseInt(document.getElementById('councilId').value);
         const preview = document.getElementById('councilPreview');
         const imgFile = document.getElementById('councilImage').files[0];
-        if (imgFile && !validateImageFile(imgFile, 'Council member')) return;
         let imgData = preview.src && !preview.classList.contains('hidden') ? preview.src : '';
-        if (imgFile) imgData = await prepareImageFile(imgFile);
+        if (imgFile) imgData = await readFile(imgFile);
         const data = {
             id: id || Date.now(),
             name:     trim(document.getElementById('councilName').value),
@@ -772,11 +761,16 @@ document.addEventListener('DOMContentLoaded', async function () {
             image: imgData,
         };
         const arr = store.getJSON(StorageKeys.COUNCIL,[]);
-        if (id) { const i=arr.findIndex(x=>x.id===id); if(i>-1) arr[i]=data; }
-        else arr.push(data);
+        upsertRecord(arr, data);
         store.setJSON(StorageKeys.COUNCIL, arr);
+        syncArabicRecord(StorageKeys.COUNCIL, ArabicStorageKeys.COUNCIL, data, {
+            name: trim(document.getElementById('councilNameAr').value),
+            position: trim(document.getElementById('councilPositionAr').value),
+            category: trim(document.getElementById('councilCategoryAr').value),
+            bio: trim(document.getElementById('councilBioAr').value)
+        });
         closeCouncilModal(); loadCouncil(); updateStats();
-        addUpdate(`Member ${id?'updated':'added'}: ${esc(data.name)}`);
+        addUpdate(`Member ${id?'updated':'added'}: ${data.name}`);
     });
 
     // ── Studies form ───────────────────────────────────────────────
@@ -790,16 +784,23 @@ document.addEventListener('DOMContentLoaded', async function () {
         const f         = fileInput?.files[0];
         const arr       = store.getJSON(StorageKeys.STUDIES,[]);
         if (id) {
-            const i = arr.findIndex(s=>s.id===id);
-            if (i>-1) {
-                arr[i].title=title; arr[i].description=desc; arr[i].date=date;
-                if (f) { arr[i].fileData=await readFile(f); arr[i].fileName=f.name; }
+            const i = arr.findIndex(s=>Number(s.id)===Number(id));
+            if (i === -1) {
+                alert('The selected study no longer exists. Refresh the page and try again.');
+                return;
             }
+            arr[i].title=title; arr[i].description=desc; arr[i].date=date;
+            if (f) { arr[i].fileData=await readFile(f); arr[i].fileName=f.name; }
         } else {
             if (!f) { alert('Please select a PDF file.'); return; }
             arr.push({ id:nextId(arr), title, description:desc, date, fileData:await readFile(f), fileName:f.name });
         }
         store.setJSON(StorageKeys.STUDIES, arr);
+        const savedStudy = arr.find(study => Number(study.id) === Number(id || arr[arr.length - 1].id));
+        syncArabicRecord(StorageKeys.STUDIES, ArabicStorageKeys.STUDIES, savedStudy, {
+            title: trim(document.getElementById('studiesTitleAr').value),
+            description: trim(document.getElementById('studiesDescriptionAr').value)
+        });
         closeStudiesModal(); loadStudies(); updateStats();
         addUpdate(`Study ${id?'updated':'added'}: ${title}`);
     });
@@ -827,18 +828,24 @@ document.addEventListener('DOMContentLoaded', async function () {
         const imgInput = document.getElementById('adsImage');
         const preview  = document.getElementById('adsPreview');
         const imgFile  = imgInput?.files[0];
-        if (imgFile && !validateImageFile(imgFile, 'Advertisement')) return;
         if (!id && !imgFile) { alert('Please select an image for the new ad.'); return; }
         let imgData = preview.src && !preview.classList.contains('hidden') ? preview.src : '';
-        if (imgFile) imgData = await prepareImageFile(imgFile);
+        if (imgFile) imgData = await readFile(imgFile);
         const arr = store.getJSON(StorageKeys.ADS,[]);
         if (id) {
-            const i=arr.findIndex(a=>a.id===id);
-            if(i>-1){ arr[i].title=title;arr[i].description=desc;arr[i].type=type;arr[i].date=date;arr[i].link=link; if(imgData) arr[i].image=imgData; }
+            const i=arr.findIndex(a=>Number(a.id)===Number(id));
+            if(i===-1){ alert('The selected advertisement no longer exists. Refresh the page and try again.'); return; }
+            arr[i].title=title;arr[i].description=desc;arr[i].type=type;arr[i].date=date;arr[i].link=link;if(imgData) arr[i].image=imgData;
         } else {
             arr.push({ id:nextId(arr), title, description:desc, image:imgData, type, date, link });
         }
         store.setJSON(StorageKeys.ADS, arr);
+        const savedAd = arr.find(ad => Number(ad.id) === Number(id || arr[arr.length - 1].id));
+        syncArabicRecord(StorageKeys.ADS, ArabicStorageKeys.ADS, savedAd, {
+            title: trim(document.getElementById('adsTitleAr').value),
+            description: trim(document.getElementById('adsDescriptionAr').value),
+            type: trim(document.getElementById('adsTypeAr').value)
+        });
         closeAdsModal(); loadAds(); updateStats();
         addUpdate(`Ad ${id?'updated':'added'}: ${title}`);
     });
@@ -866,6 +873,14 @@ document.addEventListener('DOMContentLoaded', async function () {
             aboutText: trim(document.getElementById('aboutText').value),
         };
         store.setJSON(StorageKeys.SETTINGS, s);
+        store.setJSON(ArabicStorageKeys.SETTINGS, {
+            ...store.getJSON(ArabicStorageKeys.SETTINGS, {}),
+            email: s.email,
+            phone: s.phone,
+            siteTitle: store.getJSON(ArabicStorageKeys.SETTINGS, {}).siteTitle || s.siteTitle,
+            address: store.getJSON(ArabicStorageKeys.SETTINGS, {}).address || s.address,
+            aboutText: store.getJSON(ArabicStorageKeys.SETTINGS, {}).aboutText || s.aboutText
+        });
         alert('Settings saved successfully!');
         addUpdate('Site settings updated');
     });

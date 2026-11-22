@@ -2,13 +2,10 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.emailjs.com https://www.gstatic.com; frame-src https://*.firebaseapp.com; object-src 'none'; base-uri 'self'; form-action 'self'">
-    <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لوحة التحكم | مجلس التمور العراقي</title>
-    <link rel="stylesheet" href="tailwind.css">
-    <script src="vendor/lucide-0.577.0.min.js"></script>
-    <meta name="robots" content="noindex, nofollow">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@0.525.0"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -32,11 +29,9 @@
 
     <!-- Check Authentication -->
     <script>
-        // Page stays hidden until Firebase Auth confirms a real signed-in user.
-        // (sessionStorage is NOT a security control; real protection = Firestore/Storage rules.)
-        document.documentElement.style.visibility = 'hidden';
-        window.__revealAdmin = function () { document.documentElement.style.visibility = 'visible'; };
-        setTimeout(function () { if (document.documentElement.style.visibility === 'hidden') window.location.replace('admin-login.html'); }, 8000);
+        if (sessionStorage.getItem('adminLoggedIn') !== 'true') {
+            window.location.href = 'admin-login.html';
+        }
     </script>
 
     <div class="flex h-screen overflow-hidden">
@@ -103,7 +98,7 @@
 
                 <div class="border-t border-stone-100 my-4"></div>
 
-                <a href="index.html" target="_blank" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-stone-50 transition-all text-stone-600 font-medium">
+                <a href="index.html" target="_blank" rel="noopener noreferrer" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-stone-50 transition-all text-stone-600 font-medium">
                     <i data-lucide="external-link" class="w-5 h-5"></i>
                     <span>عرض الموقع</span>
                 </a>
@@ -357,6 +352,10 @@
                                 <label class="block text-stone-700 font-semibold mb-2">عنوان الموقع الرئيسي</label>
                                 <input type="text" id="siteTitle" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all">
                             </div>
+                            <div>
+                                <label class="block text-stone-700 font-semibold mb-2">عنوان الموقع بالإنكليزية</label>
+                                <input type="text" id="siteTitleEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all">
+                            </div>
 
                             <div>
                                 <label class="block text-stone-700 font-semibold mb-2">البريد الإلكتروني للتواصل</label>
@@ -372,10 +371,18 @@
                                 <label class="block text-stone-700 font-semibold mb-2">العنوان</label>
                                 <input type="text" id="siteAddress" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all">
                             </div>
+                            <div>
+                                <label class="block text-stone-700 font-semibold mb-2">العنوان بالإنكليزية</label>
+                                <input type="text" id="siteAddressEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all">
+                            </div>
 
                             <div>
                                 <label class="block text-stone-700 font-semibold mb-2">نص من نحن (مختصر)</label>
                                 <textarea id="aboutText" rows="4" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-stone-700 font-semibold mb-2">نص من نحن بالإنكليزية</label>
+                                <textarea id="aboutTextEn" dir="ltr" rows="4" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea>
                             </div>
 
                             <div class="flex gap-4 pt-4">
@@ -476,6 +483,10 @@
                         <label class="block text-stone-700 font-semibold mb-2">عنوان الفعالية</label>
                         <input type="text" id="eventTitle" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all">
                     </div>
+                    <div>
+                        <label class="block text-stone-700 font-semibold mb-2">عنوان الفعالية بالإنكليزية</label>
+                        <input type="text" id="eventTitleEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all">
+                    </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
@@ -487,6 +498,10 @@
                             <input type="text" id="eventLocation" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all">
                         </div>
                     </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="block text-stone-700 font-semibold mb-2">التاريخ بالإنكليزية</label><input type="text" id="eventDateEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"></div>
+                        <div><label class="block text-stone-700 font-semibold mb-2">المكان بالإنكليزية</label><input type="text" id="eventLocationEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"></div>
+                    </div>
 
                     <div>
                         <label class="block text-stone-700 font-semibold mb-2">نوع الفعالية</label>
@@ -497,11 +512,13 @@
                             <option value="مرة واحدة">مرة واحدة</option>
                         </select>
                     </div>
+                    <div><label class="block text-stone-700 font-semibold mb-2">نوع الفعالية بالإنكليزية</label><select id="eventTypeEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"><option value="Annual">Annual</option><option value="Semi-Annual">Semi-Annual</option><option value="Ongoing">Ongoing</option><option value="One-time">One-time</option></select></div>
 
                     <div>
                         <label class="block text-stone-700 font-semibold mb-2">الوصف</label>
                         <textarea id="eventDesc" rows="3" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea>
                     </div>
+                    <div><label class="block text-stone-700 font-semibold mb-2">الوصف بالإنكليزية</label><textarea id="eventDescEn" dir="ltr" rows="3" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea></div>
 
                     <div>
                         <label class="block text-stone-700 font-semibold mb-2">صورة الفعالية</label>
@@ -546,6 +563,7 @@
                         <label class="block text-stone-700 font-semibold mb-2">اسم التمر</label>
                         <input type="text" id="dateName" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all">
                     </div>
+                    <div><label class="block text-stone-700 font-semibold mb-2">الاسم بالإنكليزية</label><input type="text" id="dateNameEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"></div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
@@ -567,11 +585,13 @@
                             </select>
                         </div>
                     </div>
+                    <div class="grid grid-cols-2 gap-4"><div><label class="block text-stone-700 font-semibold mb-2">الحجم بالإنكليزية</label><input type="text" id="dateSizeEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"></div><div><label class="block text-stone-700 font-semibold mb-2">التصنيف بالإنكليزية</label><input type="text" id="dateClassEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"></div></div>
 
                     <div>
                         <label class="block text-stone-700 font-semibold mb-2">الوصف</label>
                         <textarea id="dateDesc" rows="3" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea>
                     </div>
+                    <div><label class="block text-stone-700 font-semibold mb-2">الوصف بالإنكليزية</label><textarea id="dateDescEn" dir="ltr" rows="3" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea></div>
 
                     <div>
                         <label class="block text-stone-700 font-semibold mb-2">صورة التمر</label>
@@ -616,11 +636,13 @@
                         <label class="block text-stone-700 font-semibold mb-2">اسم العضو</label>
                         <input type="text" id="councilName" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all">
                     </div>
+                    <div><label class="block text-stone-700 font-semibold mb-2">اسم العضو بالإنكليزية</label><input type="text" id="councilNameEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"></div>
 
                     <div>
                         <label class="block text-stone-700 font-semibold mb-2">الموقع في المجلس</label>
                         <input type="text" id="councilPosition" placeholder="مثال: رئيس المجلس، نائب الرئيس" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all">
                     </div>
+                    <div><label class="block text-stone-700 font-semibold mb-2">الموقع بالإنكليزية</label><input type="text" id="councilPositionEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"></div>
 
                     <div>
                         <label class="block text-stone-700 font-semibold mb-2">التصنيف</label>
@@ -631,11 +653,13 @@
                             <option value="فني">فني</option>
                         </select>
                     </div>
+                    <div><label class="block text-stone-700 font-semibold mb-2">التصنيف بالإنكليزية</label><input type="text" id="councilCategoryEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"></div>
 
                     <div>
                         <label class="block text-stone-700 font-semibold mb-2">نبذة عن العضو</label>
                         <textarea id="councilBio" rows="3" placeholder="معلومات عن العضو وخبرته" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea>
                     </div>
+                    <div><label class="block text-stone-700 font-semibold mb-2">نبذة العضو بالإنكليزية</label><textarea id="councilBioEn" dir="ltr" rows="3" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea></div>
 
                     <div>
                         <label class="block text-stone-700 font-semibold mb-2">البريد الإلكتروني</label>
@@ -691,11 +715,13 @@
                             <label class="block text-stone-700 font-semibold mb-2">عنوان الدراسة *</label>
                             <input type="text" id="studiesTitle" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all">
                         </div>
+                        <div><label class="block text-stone-700 font-semibold mb-2">عنوان الدراسة بالإنكليزية</label><input type="text" id="studiesTitleEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"></div>
 
                         <div>
                             <label class="block text-stone-700 font-semibold mb-2">وصف الدراسة</label>
                             <textarea id="studiesDescription" rows="3" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea>
                         </div>
+                        <div><label class="block text-stone-700 font-semibold mb-2">وصف الدراسة بالإنكليزية</label><textarea id="studiesDescriptionEn" dir="ltr" rows="3" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea></div>
 
                         <div>
                             <label class="block text-stone-700 font-semibold mb-2">ملف PDF *</label>
@@ -744,11 +770,13 @@
                             <label class="block text-stone-700 font-semibold mb-2">عنوان الإعلان *</label>
                             <input type="text" id="adsTitle" required class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all">
                         </div>
+                        <div><label class="block text-stone-700 font-semibold mb-2">عنوان الإعلان بالإنكليزية</label><input type="text" id="adsTitleEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"></div>
 
                         <div>
                             <label class="block text-stone-700 font-semibold mb-2">وصف الإعلان</label>
                             <textarea id="adsDescription" rows="3" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea>
                         </div>
+                        <div><label class="block text-stone-700 font-semibold mb-2">وصف الإعلان بالإنكليزية</label><textarea id="adsDescriptionEn" dir="ltr" rows="3" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all resize-none"></textarea></div>
 
                         <div>
                             <label class="block text-stone-700 font-semibold mb-2">صورة الإعلان *</label>
@@ -771,6 +799,7 @@
                                 <option value="أخرى">أخرى</option>
                             </select>
                         </div>
+                        <div><label class="block text-stone-700 font-semibold mb-2">نوع الإعلان بالإنكليزية</label><input type="text" id="adsTypeEn" dir="ltr" class="w-full px-4 py-3 rounded-xl border border-stone-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"></div>
 
                         <div>
                             <label class="block text-stone-700 font-semibold mb-2">تاريخ الإعلان</label>
@@ -796,7 +825,6 @@
         </div>
     </div>
 
-    <script src="upload-guard.js"></script>
     <script src="admin.js"></script>
     <script>
         lucide.createIcons();
