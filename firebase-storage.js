@@ -35,42 +35,56 @@ const StorageKeys = {
     MESSAGES_EN: 'iraq_dates_messages_en'
 };
 
+function isEmptyJsonContainer(value) {
+    if (value === null || value === undefined || value === 'null' || value === '') return true;
+    try {
+        const parsed = JSON.parse(String(value));
+        return (Array.isArray(parsed) && parsed.length === 0)
+            || (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.keys(parsed).length === 0);
+    } catch {
+        return false;
+    }
+}
+
 // Unified Storage API
 const unifiedStorage = {
     async getItem(key) {
-        // محاولة الحصول من الـ cache أولاً
+        // Attempt cache first
         if (firebaseCache.has(key)) {
             const cachedValue = firebaseCache.get(key);
-            // إذا كانت القيمة null أو فارغة، احذفها من الـ cache
-            if (!cachedValue || cachedValue === 'null' || cachedValue === '[]') {
+            if (cachedValue === null || cachedValue === 'null' || cachedValue === '') {
                 firebaseCache.delete(key);
-                window.localStorage.removeItem(key);
-                return null;
+                const localValue = window.localStorage.getItem(key);
+                return localValue !== null && localValue !== 'null' && localValue !== '' ? localValue : null;
             }
             return cachedValue;
         }
 
-        // محاولة الحصول من Firebase إذا كان مفعلاً
+        // Attempt Firebase if enabled
         if (firebaseEnabled && firebaseDocApi) {
             try {
                 const firebaseValue = await firebaseDocApi.get(key);
-                if (firebaseValue) {
+                if (firebaseValue !== null && firebaseValue !== 'null' && firebaseValue !== '') {
                     firebaseCache.set(key, firebaseValue);
                     window.localStorage.setItem(key, firebaseValue);
                     return firebaseValue;
                 }
-                // إذا لم تكن البيانات موجودة في Firebase، احذفها من localStorage
-                firebaseCache.delete(key);
-                window.localStorage.removeItem(key);
+
+                // Fallback to localStorage when Firebase has no valid value
+                const localValue = window.localStorage.getItem(key);
+                if (localValue !== null && localValue !== 'null' && localValue !== '') {
+                    firebaseCache.set(key, localValue);
+                    return localValue;
+                }
                 return null;
             } catch (error) {
                 console.warn(`فشل الحصول على ${key} من Firebase، جاري محاولة localStorage:`, error);
             }
         }
 
-        // الرجوع إلى localStorage
+        // Fallback to localStorage
         const localValue = window.localStorage.getItem(key);
-        if (localValue) {
+        if (localValue !== null && localValue !== 'null' && localValue !== '') {
             firebaseCache.set(key, localValue);
             return localValue;
         }
@@ -81,7 +95,11 @@ const unifiedStorage = {
     async setItem(key, value) {
         const normalized = String(value);
         firebaseCache.set(key, normalized);
-        window.localStorage.setItem(key, normalized);
+        try {
+            window.localStorage.setItem(key, normalized);
+        } catch (err) {
+            console.warn(`localStorage.setItem failed for ${key}`, err);
+        }
 
         // حفظ في Firebase إذا كان مفعلاً
         if (firebaseEnabled && firebaseDocApi) {
@@ -175,10 +193,13 @@ async function initializeFirebaseStorage() {
             async get(key) {
                 const docRef = doc(db, FIRESTORE_COLLECTION, key);
                 const snapshot = await getDoc(docRef);
-                if (snapshot.exists()) {
-                    return String(snapshot.data().value ?? '');
+                if (!snapshot.exists()) return null;
+
+                const value = snapshot.data().value;
+                if (value === null || value === undefined || value === '') {
+                    return null;
                 }
-                return null;
+                return String(value);
             },
 
             async remove(key) {
@@ -188,12 +209,13 @@ async function initializeFirebaseStorage() {
             subscribe(key, callback) {
                 const docRef = doc(db, FIRESTORE_COLLECTION, key);
                 return onSnapshot(docRef, (snapshot) => {
-                    if (snapshot.exists()) {
-                        const remoteValue = String(snapshot.data().value ?? '');
-                        firebaseCache.set(key, remoteValue);
-                        window.localStorage.setItem(key, remoteValue);
-                        callback(remoteValue);
-                    }
+                    if (!snapshot.exists()) return;
+                    const value = snapshot.data().value;
+                    if (value === null || value === undefined || value === '') return;
+                    const remoteValue = String(value);
+                    firebaseCache.set(key, remoteValue);
+                    window.localStorage.setItem(key, remoteValue);
+                    callback(remoteValue);
                 });
             }
         };
@@ -209,7 +231,7 @@ async function initializeFirebaseStorage() {
                 }
 
                 const localValue = window.localStorage.getItem(key);
-                if (localValue !== null) {
+                if (localValue !== null && localValue !== 'null' && localValue !== '') {
                     firebaseCache.set(key, localValue);
                     await firebaseDocApi.set(key, localValue);
                 }

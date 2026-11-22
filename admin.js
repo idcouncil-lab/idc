@@ -11,15 +11,6 @@ const StorageKeys = {
     MESSAGES: 'iraq_dates_messages'
 };
 
-const EnglishStorageKeys = {
-    EVENTS: 'iraq_dates_events_en',
-    DATES: 'iraq_dates_types_en',
-    COUNCIL: 'iraq_dates_council_en',
-    STUDIES: 'iraq_dates_studies_en',
-    ADS: 'iraq_dates_ads_en',
-    SETTINGS: 'iraq_dates_settings_en'
-};
-
 // Data Management
 const FIREBASE_CONFIG = {
     apiKey: 'AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o',
@@ -102,6 +93,7 @@ async function initializeFirebaseStore() {
                     console.warn('المستخدم غير مسجّل في Firebase Auth، إعادة التوجيه...');
                     window.location.href = 'admin-login.html';
                 }
+                if (user && window.__revealAdmin) window.__revealAdmin();
                 resolve(user);
             });
         });
@@ -118,7 +110,7 @@ async function initializeFirebaseStore() {
             }
         };
 
-        await Promise.all([...Object.values(StorageKeys), ...Object.values(EnglishStorageKeys)].map(async (key) => {
+        await Promise.all(Object.values(StorageKeys).map(async (key) => {
             const docRef = doc(db, FIRESTORE_COLLECTION, key);
             const snapshot = await getDoc(docRef);
 
@@ -165,6 +157,10 @@ const UploadConstraints = {
     adImageMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
 };
 
+function safeId(value) {
+    return String(value ?? '').replace(/[^A-Za-z0-9_-]/g, '');
+}
+
 function escapeHTML(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -176,35 +172,6 @@ function escapeHTML(value) {
 
 function normalizeText(value) {
     return String(value ?? '').trim();
-}
-
-function getStoredList(key) {
-    try {
-        return JSON.parse(getfirebase.getItem(key) || '[]');
-    } catch (_) {
-        return [];
-    }
-}
-
-function syncLocalizedRecord(arabicKey, englishKey, arabicRecord, englishRecord) {
-    const arabicRecords = getStoredList(arabicKey);
-    const englishRecords = getStoredList(englishKey);
-    const arabicIndex = arabicRecords.findIndex(record => Number(record.id) === Number(arabicRecord.id));
-    const englishIndex = englishRecords.findIndex(record => Number(record.id) === Number(arabicRecord.id));
-
-    if (arabicIndex === -1) arabicRecords.push(arabicRecord);
-    else arabicRecords[arabicIndex] = { ...arabicRecords[arabicIndex], ...arabicRecord };
-
-    if (englishIndex === -1) englishRecords.push(englishRecord);
-    else englishRecords[englishIndex] = { ...englishRecords[englishIndex], ...englishRecord };
-
-    getfirebase.setItem(arabicKey, JSON.stringify(arabicRecords));
-    getfirebase.setItem(englishKey, JSON.stringify(englishRecords));
-}
-
-function removeLocalizedRecord(arabicKey, englishKey, id) {
-    getfirebase.setItem(arabicKey, JSON.stringify(getStoredList(arabicKey).filter(record => Number(record.id) !== Number(id))));
-    getfirebase.setItem(englishKey, JSON.stringify(getStoredList(englishKey).filter(record => Number(record.id) !== Number(id))));
 }
 
 function sanitizeHttpUrl(value) {
@@ -550,22 +517,22 @@ function loadEvents() {
     tbody.innerHTML = events.map(event => `
         <tr class="hover:bg-stone-50 transition-colors">
             <td class="px-6 py-4">
-                <img src="${event.image}" alt="${event.title}" class="w-16 h-16 rounded-lg object-cover">
+                <img src="${sanitizeImageSource(event.image)}" alt="${escapeHTML(event.title)}" class="w-16 h-16 rounded-lg object-cover">
             </td>
-            <td class="px-6 py-4 font-medium text-stone-800">${event.title}</td>
-            <td class="px-6 py-4 text-stone-600">${event.date}</td>
-            <td class="px-6 py-4 text-stone-600">${event.location}</td>
+            <td class="px-6 py-4 font-medium text-stone-800">${escapeHTML(event.title)}</td>
+            <td class="px-6 py-4 text-stone-600">${escapeHTML(event.date)}</td>
+            <td class="px-6 py-4 text-stone-600">${escapeHTML(event.location)}</td>
             <td class="px-6 py-4">
                 <span class="px-3 py-1 rounded-full text-xs font-semibold ${getTypeColor(event.type)}">
-                    ${event.type}
+                    ${escapeHTML(event.type)}
                 </span>
             </td>
             <td class="px-6 py-4">
                 <div class="flex gap-2">
-                    <button onclick="editEvent(${event.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                    <button onclick="editEvent(${safeId(event.id)})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="deleteEvent(${event.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <button onclick="deleteEvent(${safeId(event.id)})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
@@ -597,7 +564,7 @@ function openEventModal(eventId = null) {
     
     if (eventId) {
         const events = JSON.parse(getfirebase.getItem(StorageKeys.EVENTS) || '[]');
-        const event = events.find(e => Number(e.id) === Number(eventId));
+        const event = events.find(e => e.id === eventId);
         
         if (event) {
             title.textContent = 'تعديل الفعالية';
@@ -607,12 +574,6 @@ function openEventModal(eventId = null) {
             document.getElementById('eventLocation').value = event.location;
             document.getElementById('eventType').value = event.type;
             document.getElementById('eventDesc').value = event.description;
-            const englishEvent = getStoredList(EnglishStorageKeys.EVENTS).find(item => Number(item.id) === Number(event.id)) || {};
-            document.getElementById('eventTitleEn').value = englishEvent.title || '';
-            document.getElementById('eventDateEn').value = englishEvent.date || '';
-            document.getElementById('eventLocationEn').value = englishEvent.location || '';
-            document.getElementById('eventTypeEn').value = englishEvent.type || '';
-            document.getElementById('eventDescEn').value = englishEvent.description || '';
             
             if (event.image) {
                 document.getElementById('eventPreview').src = event.image;
@@ -638,7 +599,9 @@ function editEvent(id) {
 function deleteEvent(id) {
     if (!confirm('هل أنت متأكد من حذف هذه الفعالية؟')) return;
     
-    removeLocalizedRecord(StorageKeys.EVENTS, EnglishStorageKeys.EVENTS, id);
+    let events = JSON.parse(getfirebase.getItem(StorageKeys.EVENTS) || '[]');
+    events = events.filter(e => e.id !== id);
+    getfirebase.setItem(StorageKeys.EVENTS, JSON.stringify(events));
     
     loadEvents();
     updateDashboardStats();
@@ -658,22 +621,22 @@ function loadDates() {
     tbody.innerHTML = dates.map(date => `
         <tr class="hover:bg-stone-50 transition-colors">
             <td class="px-6 py-4">
-                <img src="${date.image}" alt="${date.name}" class="w-16 h-16 rounded-lg object-cover">
+                <img src="${sanitizeImageSource(date.image)}" alt="${escapeHTML(date.name)}" class="w-16 h-16 rounded-lg object-cover">
             </td>
-            <td class="px-6 py-4 font-medium text-stone-800">${date.name}</td>
-            <td class="px-6 py-4 text-stone-600 text-sm max-w-xs truncate">${date.description}</td>
-            <td class="px-6 py-4 text-stone-600">${date.size}</td>
+            <td class="px-6 py-4 font-medium text-stone-800">${escapeHTML(date.name)}</td>
+            <td class="px-6 py-4 text-stone-600 text-sm max-w-xs truncate">${escapeHTML(date.description)}</td>
+            <td class="px-6 py-4 text-stone-600">${escapeHTML(date.size)}</td>
             <td class="px-6 py-4">
                 <span class="px-3 py-1 rounded-full text-xs font-semibold ${getClassColor(date.classification)}">
-                    ${date.classification}
+                    ${escapeHTML(date.classification)}
                 </span>
             </td>
             <td class="px-6 py-4">
                 <div class="flex gap-2">
-                    <button onclick="editDate(${date.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                    <button onclick="editDate(${safeId(date.id)})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="deleteDate(${date.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <button onclick="deleteDate(${safeId(date.id)})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
@@ -705,7 +668,7 @@ function openDateModal(dateId = null) {
     
     if (dateId) {
         const dates = JSON.parse(getfirebase.getItem(StorageKeys.DATES) || '[]');
-        const date = dates.find(d => Number(d.id) === Number(dateId));
+        const date = dates.find(d => d.id === dateId);
         
         if (date) {
             title.textContent = 'تعديل نوع التمر';
@@ -714,11 +677,6 @@ function openDateModal(dateId = null) {
             document.getElementById('dateSize').value = date.size;
             document.getElementById('dateClass').value = date.classification;
             document.getElementById('dateDesc').value = date.description;
-            const englishDate = getStoredList(EnglishStorageKeys.DATES).find(item => Number(item.id) === Number(date.id)) || {};
-            document.getElementById('dateNameEn').value = englishDate.name || '';
-            document.getElementById('dateSizeEn').value = englishDate.size || '';
-            document.getElementById('dateClassEn').value = englishDate.classification || '';
-            document.getElementById('dateDescEn').value = englishDate.description || '';
             
             if (date.image) {
                 document.getElementById('datePreview').src = date.image;
@@ -744,7 +702,9 @@ function editDate(id) {
 function deleteDate(id) {
     if (!confirm('هل أنت متأكد من حذف هذا النوع؟')) return;
     
-    removeLocalizedRecord(StorageKeys.DATES, EnglishStorageKeys.DATES, id);
+    let dates = JSON.parse(getfirebase.getItem(StorageKeys.DATES) || '[]');
+    dates = dates.filter(d => d.id !== id);
+    getfirebase.setItem(StorageKeys.DATES, JSON.stringify(dates));
     
     loadDates();
     updateDashboardStats();
@@ -769,24 +729,24 @@ function loadMessages() {
                         <i data-lucide="user" class="w-6 h-6 text-amber-600"></i>
                     </div>
                     <div>
-                        <h4 class="font-bold text-stone-800">${msg.name}</h4>
-                        <p class="text-sm text-stone-500">${msg.email}</p>
+                        <h4 class="font-bold text-stone-800">${escapeHTML(msg.name)}</h4>
+                        <p class="text-sm text-stone-500">${escapeHTML(msg.email)}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-sm text-stone-400">${msg.date}</span>
+                    <span class="text-sm text-stone-400">${escapeHTML(msg.date)}</span>
                     <button onclick="deleteMessage(${index})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
             </div>
             <div class="bg-stone-50 rounded-xl p-4 mb-3">
-                <p class="text-stone-600 text-sm mb-2"><span class="font-semibold">الموضوع:</span> ${msg.subject}</p>
-                <p class="text-stone-700">${msg.message}</p>
+                <p class="text-stone-600 text-sm mb-2"><span class="font-semibold">الموضوع:</span> ${escapeHTML(msg.subject)}</p>
+                <p class="text-stone-700">${escapeHTML(msg.message)}</p>
             </div>
             <div class="flex items-center gap-2 text-sm text-stone-500">
                 <i data-lucide="clock" class="w-4 h-4"></i>
-                <span>تاريخ الإرسال: ${msg.timestamp}</span>
+                <span>تاريخ الإرسال: ${escapeHTML(msg.timestamp)}</span>
             </div>
         </div>
     `).join('');
@@ -816,16 +776,12 @@ function clearAllMessages() {
 // Settings Management
 function loadSettings() {
     const settings = JSON.parse(getfirebase.getItem(StorageKeys.SETTINGS) || '{}');
-    const englishSettings = JSON.parse(getfirebase.getItem(EnglishStorageKeys.SETTINGS) || '{}');
     
     document.getElementById('siteTitle').value = settings.siteTitle || '';
     document.getElementById('siteEmail').value = settings.email || '';
     document.getElementById('sitePhone').value = settings.phone || '';
     document.getElementById('siteAddress').value = settings.address || '';
     document.getElementById('aboutText').value = settings.aboutText || '';
-    document.getElementById('siteTitleEn').value = englishSettings.siteTitle || '';
-    document.getElementById('siteAddressEn').value = englishSettings.address || '';
-    document.getElementById('aboutTextEn').value = englishSettings.aboutText || '';
 }
 
 // Form Submissions
@@ -845,17 +801,19 @@ document.getElementById('dateForm').addEventListener('submit', function(e) {
         description: document.getElementById('dateDesc').value,
         image: imagePreview.src && !imagePreview.classList.contains('hidden') ? imagePreview.src : 'http://static.photos/food/640x360/1'
     };
-
-    const existingEnglish = getStoredList(EnglishStorageKeys.DATES).find(d => Number(d.id) === dateData.id) || {};
-    syncLocalizedRecord(StorageKeys.DATES, EnglishStorageKeys.DATES, dateData, {
-        id: dateData.id,
-        name: normalizeText(document.getElementById('dateNameEn')?.value) || existingEnglish.name || dateData.name,
-        size: normalizeText(document.getElementById('dateSizeEn')?.value) || existingEnglish.size || dateData.size,
-        classification: normalizeText(document.getElementById('dateClassEn')?.value) || existingEnglish.classification || dateData.classification,
-        description: normalizeText(document.getElementById('dateDescEn')?.value) || existingEnglish.description || dateData.description,
-        image: dateData.image
-    });
-    addRecentUpdate((dateId ? 'تم تحديث نوع تمر: ' : 'تم إضافة نوع تمر جديد: ') + dateData.name);
+    
+    let dates = JSON.parse(getfirebase.getItem(StorageKeys.DATES) || '[]');
+    
+    if (dateId) {
+        const index = dates.findIndex(d => d.id === parseInt(dateId));
+        if (index !== -1) dates[index] = dateData;
+        addRecentUpdate('تم تحديث نوع تمر: ' + dateData.name);
+    } else {
+        dates.push(dateData);
+        addRecentUpdate('تم إضافة نوع تمر جديد: ' + dateData.name);
+    }
+    
+    getfirebase.setItem(StorageKeys.DATES, JSON.stringify(dates));
     closeDateModal();
     loadDates();
     updateDashboardStats();
@@ -877,17 +835,18 @@ document.getElementById('eventForm').addEventListener('submit', function(e) {
         image: imagePreview.src && !imagePreview.classList.contains('hidden') ? imagePreview.src : 'http://static.photos/event/640x360/111'
     };
 
-    const existingEnglish = getStoredList(EnglishStorageKeys.EVENTS).find(ev => Number(ev.id) === eventData.id) || {};
-    syncLocalizedRecord(StorageKeys.EVENTS, EnglishStorageKeys.EVENTS, eventData, {
-        id: eventData.id,
-        title: normalizeText(document.getElementById('eventTitleEn')?.value) || existingEnglish.title || eventData.title,
-        date: normalizeText(document.getElementById('eventDateEn')?.value) || existingEnglish.date || eventData.date,
-        location: normalizeText(document.getElementById('eventLocationEn')?.value) || existingEnglish.location || eventData.location,
-        type: normalizeText(document.getElementById('eventTypeEn')?.value) || existingEnglish.type || eventData.type,
-        description: normalizeText(document.getElementById('eventDescEn')?.value) || existingEnglish.description || eventData.description,
-        image: eventData.image
-    });
-    addRecentUpdate((eventId ? 'تم تحديث الفعالية: ' : 'تم إضافة فعالية جديدة: ') + eventData.title);
+    let events = JSON.parse(getfirebase.getItem(StorageKeys.EVENTS) || '[]');
+
+    if (eventId) {
+        const index = events.findIndex(ev => ev.id === parseInt(eventId));
+        if (index !== -1) events[index] = eventData;
+        addRecentUpdate('تم تحديث الفعالية: ' + eventData.title);
+    } else {
+        events.push(eventData);
+        addRecentUpdate('تم إضافة فعالية جديدة: ' + eventData.title);
+    }
+
+    getfirebase.setItem(StorageKeys.EVENTS, JSON.stringify(events));
     closeEventModal();
     loadEvents();
     updateDashboardStats();
@@ -904,15 +863,7 @@ document.getElementById('settingsForm').addEventListener('submit', function(e) {
         aboutText: document.getElementById('aboutText').value
     };
     
-    const englishSettings = {
-        siteTitle: normalizeText(document.getElementById('siteTitleEn')?.value) || settings.siteTitle,
-        email: settings.email,
-        phone: settings.phone,
-        address: normalizeText(document.getElementById('siteAddressEn')?.value) || settings.address,
-        aboutText: normalizeText(document.getElementById('aboutTextEn')?.value) || settings.aboutText
-    };
     getfirebase.setItem(StorageKeys.SETTINGS, JSON.stringify(settings));
-    getfirebase.setItem(EnglishStorageKeys.SETTINGS, JSON.stringify(englishSettings));
     alert('تم حفظ الإعدادات بنجاح!');
     addRecentUpdate('تم تحديث إعدادات الموقع');
 });
@@ -934,7 +885,40 @@ function previewImage(input, previewId) {
 
 // Advanced Council Image Preview Handler
 function previewCouncilImage(input) {
-    previewImage(input, 'councilPreview');
+    const file = input.files[0];
+    const previewDiv = document.getElementById('councilImagePreview');
+    const previewImg = document.getElementById('councilPreview');
+    const fileName = document.getElementById('councilFileName');
+    const fileSize = document.getElementById('councilFileSize');
+    const fileType = document.getElementById('councilFileType');
+    const fileDimensions = document.getElementById('councilFileDimensions');
+    
+    if (file) {
+        // عرض الصورة
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            previewDiv.classList.remove('hidden');
+            
+            // عرض معلومات الملف الأساسية
+            fileName.textContent = file.name;
+            fileSize.textContent = (file.size / 1024).toFixed(2) + ' KB';
+            fileType.textContent = file.type || 'صورة';
+            
+            // حساب أبعاد الصورة تلقائياً
+            const img = new Image();
+            img.onload = function() {
+                fileDimensions.textContent = img.width + ' × ' + img.height + ' بكسل';
+            };
+            img.onerror = function() {
+                fileDimensions.textContent = 'غير متاح';
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        previewDiv.classList.add('hidden');
+    }
 }
 
 // Council Management
@@ -950,28 +934,28 @@ function loadCouncil() {
     grid.innerHTML = council.map(member => `
         <div class="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
             <div class="relative overflow-hidden h-48 bg-stone-100">
-                <img src="${member.image}" alt="${member.name}" class="w-full h-full object-cover">
+                <img src="${sanitizeImageSource(member.image)}" alt="${escapeHTML(member.name)}" class="w-full h-full object-cover">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <button onclick="editCouncil(${member.id})" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <button onclick="editCouncil(${safeId(member.id)})" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="deleteCouncil(${member.id})" class="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                    <button onclick="deleteCouncil(${safeId(member.id)})" class="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
             </div>
             <div class="p-4">
-                <h3 class="font-bold text-stone-800 mb-1">${member.name}</h3>
-                <p class="text-sm text-amber-600 font-semibold mb-2">${member.position}</p>
+                <h3 class="font-bold text-stone-800 mb-1">${escapeHTML(member.name)}</h3>
+                <p class="text-sm text-amber-600 font-semibold mb-2">${escapeHTML(member.position)}</p>
                 <div class="mb-3">
                     <span class="px-2 py-1 rounded-full text-xs font-semibold ${getCategoryColor(member.category)}">
-                        ${member.category}
+                        ${escapeHTML(member.category)}
                     </span>
                 </div>
-                <p class="text-stone-600 text-sm mb-3 line-clamp-2">${member.bio}</p>
+                <p class="text-stone-600 text-sm mb-3 line-clamp-2">${escapeHTML(member.bio)}</p>
                 <div class="space-y-1 text-xs text-stone-500">
-                    <p class="flex items-center gap-2"><i data-lucide="mail" class="w-3 h-3"></i> ${member.email}</p>
-                    <p class="flex items-center gap-2"><i data-lucide="phone" class="w-3 h-3"></i> ${member.phone}</p>
+                    <p class="flex items-center gap-2"><i data-lucide="mail" class="w-3 h-3"></i> ${escapeHTML(member.email)}</p>
+                    <p class="flex items-center gap-2"><i data-lucide="phone" class="w-3 h-3"></i> ${escapeHTML(member.phone)}</p>
                 </div>
             </div>
         </div>
@@ -1012,7 +996,7 @@ function openCouncilModal(memberId = null) {
     
     if (memberId) {
         const council = JSON.parse(getfirebase.getItem(StorageKeys.COUNCIL) || '[]');
-        const member = council.find(m => Number(m.id) === Number(memberId));
+        const member = council.find(m => m.id === memberId);
         
         if (member) {
             title.textContent = 'تعديل بيانات العضو';
@@ -1023,11 +1007,6 @@ function openCouncilModal(memberId = null) {
             document.getElementById('councilBio').value = member.bio;
             document.getElementById('councilEmail').value = member.email;
             document.getElementById('councilPhone').value = member.phone;
-            const englishMember = getStoredList(EnglishStorageKeys.COUNCIL).find(item => Number(item.id) === Number(member.id)) || {};
-            document.getElementById('councilNameEn').value = englishMember.name || '';
-            document.getElementById('councilPositionEn').value = englishMember.position || '';
-            document.getElementById('councilCategoryEn').value = englishMember.category || '';
-            document.getElementById('councilBioEn').value = englishMember.bio || '';
             
             if (member.image) {
                 document.getElementById('councilPreview').src = member.image;
@@ -1060,22 +1039,21 @@ function saveCouncil(event) {
         email: document.getElementById('councilEmail').value,
         phone: document.getElementById('councilPhone').value,
         image: document.getElementById('councilPreview').classList.contains('hidden') 
-            ? (council.find(m => Number(m.id) === Number(id))?.image || 'http://static.photos/people/default') 
+            ? (council.find(m => m.id === id)?.image || 'http://static.photos/people/default') 
             : document.getElementById('councilPreview').src
     };
     
-    const memberId = id || (council.length > 0 ? Math.max(...council.map(m => m.id)) + 1 : 1);
-    const existingEnglish = getStoredList(EnglishStorageKeys.COUNCIL).find(m => Number(m.id) === memberId) || {};
-    syncLocalizedRecord(StorageKeys.COUNCIL, EnglishStorageKeys.COUNCIL, { id: memberId, ...memberData }, {
-        id: memberId,
-        name: normalizeText(document.getElementById('councilNameEn')?.value) || existingEnglish.name || memberData.name,
-        position: normalizeText(document.getElementById('councilPositionEn')?.value) || existingEnglish.position || memberData.position,
-        category: normalizeText(document.getElementById('councilCategoryEn')?.value) || existingEnglish.category || memberData.category,
-        bio: normalizeText(document.getElementById('councilBioEn')?.value) || existingEnglish.bio || memberData.bio,
-        email: memberData.email,
-        phone: memberData.phone,
-        image: memberData.image
-    });
+    if (id) {
+        const index = council.findIndex(m => m.id === id);
+        if (index !== -1) {
+            council[index] = { id, ...memberData };
+        }
+    } else {
+        const newId = council.length > 0 ? Math.max(...council.map(m => m.id)) + 1 : 1;
+        council.push({ id: newId, ...memberData });
+    }
+    
+    getfirebase.setItem(StorageKeys.COUNCIL, JSON.stringify(council));
     closeCouncilModal();
     loadCouncil();
     updateDashboardStats();
@@ -1089,7 +1067,9 @@ function editCouncil(id) {
 function deleteCouncil(id) {
     if (!confirm('هل أنت متأكد من حذف هذا العضو؟')) return;
     
-    removeLocalizedRecord(StorageKeys.COUNCIL, EnglishStorageKeys.COUNCIL, id);
+    let council = JSON.parse(getfirebase.getItem(StorageKeys.COUNCIL) || '[]');
+    council = council.filter(m => m.id !== id);
+    getfirebase.setItem(StorageKeys.COUNCIL, JSON.stringify(council));
     
     loadCouncil();
     updateDashboardStats();
@@ -1123,8 +1103,8 @@ function loadRecentUpdates() {
     container.innerHTML = updates.map(u => `
         <div class="flex items-center gap-3 text-sm border-b border-stone-100 pb-2 last:border-0">
             <i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i>
-            <span class="flex-1 text-stone-700">${u.text}</span>
-            <span class="text-stone-400 text-xs">${u.time}</span>
+            <span class="flex-1 text-stone-700">${escapeHTML(u.text)}</span>
+            <span class="text-stone-400 text-xs">${escapeHTML(u.time)}</span>
         </div>
     `).join('');
     
@@ -1154,10 +1134,10 @@ function loadStudies() {
                 </td>
                 <td class="px-6 py-4">
                     <div class="flex gap-2">
-                        <button onclick="editStudy(${study.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                        <button onclick="editStudy(${safeId(study.id)})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                             <i data-lucide="edit" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="deleteStudy(${study.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                        <button onclick="deleteStudy(${safeId(study.id)})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </div>
@@ -1183,7 +1163,7 @@ function openStudiesModal(studyId = null) {
     
     if (studyId) {
         const studies = JSON.parse(getfirebase.getItem(StorageKeys.STUDIES) || '[]');
-        const study = studies.find(s => Number(s.id) === Number(studyId));
+        const study = studies.find(s => s.id === studyId);
         
         if (study) {
             title.textContent = 'تعديل الدراسة';
@@ -1191,9 +1171,6 @@ function openStudiesModal(studyId = null) {
             document.getElementById('studiesTitle').value = study.title;
             document.getElementById('studiesDescription').value = study.description;
             document.getElementById('studiesDate').value = study.date;
-            const englishStudy = getStoredList(EnglishStorageKeys.STUDIES).find(s => Number(s.id) === Number(study.id)) || {};
-            document.getElementById('studiesTitleEn').value = englishStudy.title || '';
-            document.getElementById('studiesDescriptionEn').value = englishStudy.description || '';
             
             // Note: File input cannot be pre-filled for security reasons
             document.getElementById('studiesFile').required = false;
@@ -1258,25 +1235,23 @@ function saveStudies(event) {
         let studies = JSON.parse(getfirebase.getItem(StorageKeys.STUDIES) || '[]');
         const persistStudy = async () => {
             if (id) {
-                const index = studies.findIndex(s => Number(s.id) === Number(id));
-                if (index === -1) {
-                    alert('تعذر العثور على الدراسة المحددة. أعد تحميل الصفحة وحاول مجدداً.');
-                    return;
-                }
-                studies[index].title = title;
-                studies[index].description = description;
-                studies[index].date = date;
-
-                if (fileInput.files.length > 0) {
-                    const file = fileInput.files[0];
-                    studies[index].file = file.name;
-                    studies[index].fileName = file.name;
-                    studies[index].fileType = file.type || 'application/pdf';
-                    studies[index].fileData = await readFileAsDataURL(file);
+                const index = studies.findIndex(s => s.id === id);
+                if (index !== -1) {
+                    studies[index].title = title;
+                    studies[index].description = description;
+                    studies[index].date = date;
+                    
+                    if (fileInput.files.length > 0) {
+                        const file = fileInput.files[0];
+                        studies[index].file = file.name;
+                        studies[index].fileName = file.name;
+                        studies[index].fileType = file.type || 'application/pdf';
+                        studies[index].fileData = await readFileAsDataURL(file);
+                    }
                 }
             } else {
                 const file = fileInput.files[0];
-                const newId = Math.max(0, ...studies.map(s => Number(s.id) || 0)) + 1;
+                const newId = Math.max(0, ...studies.map(s => s.id)) + 1;
                 studies.push({
                     id: newId,
                     title,
@@ -1289,29 +1264,7 @@ function saveStudies(event) {
                 });
             }
             
-            const currentStudyId = id || studies[studies.length - 1]?.id;
-            const currentStudy = studies.find(study => Number(study.id) === Number(currentStudyId));
-            if (!currentStudy) {
-                throw new Error('تعذر تجهيز بيانات الدراسة للحفظ.');
-            }
-            const englishStudies = getStoredList(EnglishStorageKeys.STUDIES);
-            const existingEnglishStudy = englishStudies.find(study => Number(study.id) === Number(currentStudy.id)) || {};
-            const englishStudy = {
-                ...existingEnglishStudy,
-                id: currentStudy.id,
-                title: normalizeText(document.getElementById('studiesTitleEn')?.value) || title,
-                description: normalizeText(document.getElementById('studiesDescriptionEn')?.value) || description,
-                date: date || existingEnglishStudy.date || '',
-                file: currentStudy.file || existingEnglishStudy.file || '',
-                fileName: currentStudy.fileName || existingEnglishStudy.fileName || '',
-                fileType: currentStudy.fileType || existingEnglishStudy.fileType || '',
-                fileData: currentStudy.fileData || existingEnglishStudy.fileData || ''
-            };
-            const englishIndex = englishStudies.findIndex(s => Number(s.id) === Number(englishStudy.id));
-            if (englishIndex === -1) englishStudies.push(englishStudy);
-            else englishStudies[englishIndex] = { ...englishStudies[englishIndex], ...englishStudy };
             getfirebase.setItem(StorageKeys.STUDIES, JSON.stringify(studies));
-            getfirebase.setItem(EnglishStorageKeys.STUDIES, JSON.stringify(englishStudies));
             loadStudies();
             updateDashboardStats();
             closeStudiesModal();
@@ -1334,7 +1287,9 @@ function editStudy(id) {
 
 function deleteStudy(id) {
     if (confirm('هل أنت متأكد من حذف هذه الدراسة؟')) {
-        removeLocalizedRecord(StorageKeys.STUDIES, EnglishStorageKeys.STUDIES, id);
+        let studies = JSON.parse(getfirebase.getItem(StorageKeys.STUDIES) || '[]');
+        studies = studies.filter(s => s.id !== id);
+        getfirebase.setItem(StorageKeys.STUDIES, JSON.stringify(studies));
         loadStudies();
         updateDashboardStats();
         addRecentUpdate('تم حذف دراسة');
@@ -1382,10 +1337,10 @@ function loadAds() {
                     <h3 class="text-lg font-bold text-stone-800 mb-2">${escapeHTML(ad.title)}</h3>
                     <p class="text-stone-600 text-sm mb-4 line-clamp-2">${escapeHTML(ad.description)}</p>
                     <div class="flex gap-2">
-                        <button onclick="editAd(${ad.id})" class="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors text-sm">
+                        <button onclick="editAd(${safeId(ad.id)})" class="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors text-sm">
                             تعديل
                         </button>
-                        <button onclick="deleteAd(${ad.id})" class="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors text-sm">
+                        <button onclick="deleteAd(${safeId(ad.id)})" class="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors text-sm">
                             حذف
                         </button>
                     </div>
@@ -1413,7 +1368,7 @@ function openAdsModal(adId = null) {
     
     if (adId) {
         const ads = JSON.parse(getfirebase.getItem(StorageKeys.ADS) || '[]');
-        const ad = ads.find(a => Number(a.id) === Number(adId));
+        const ad = ads.find(a => a.id === adId);
         
         if (ad) {
             title.textContent = 'تعديل الإعلان';
@@ -1423,10 +1378,6 @@ function openAdsModal(adId = null) {
             document.getElementById('adsType').value = ad.type;
             document.getElementById('adsDate').value = ad.date;
             document.getElementById('adsLink').value = ad.link || '';
-            const englishAd = getStoredList(EnglishStorageKeys.ADS).find(a => Number(a.id) === Number(ad.id)) || {};
-            document.getElementById('adsTitleEn').value = englishAd.title || '';
-            document.getElementById('adsDescriptionEn').value = englishAd.description || '';
-            document.getElementById('adsTypeEn').value = englishAd.type || '';
             
             if (ad.image) {
                 document.getElementById('adsPreview').src = sanitizeImageSource(ad.image);
@@ -1487,22 +1438,20 @@ function saveAds(event) {
         let ads = JSON.parse(getfirebase.getItem(StorageKeys.ADS) || '[]');
         const persistAd = async () => {
             if (id) {
-                const index = ads.findIndex(a => Number(a.id) === Number(id));
-                if (index === -1) {
-                    alert('تعذر العثور على الإعلان المحدد. أعد تحميل الصفحة وحاول مجدداً.');
-                    return;
-                }
-                ads[index].title = title;
-                ads[index].description = description;
-                ads[index].type = type;
-                ads[index].date = date;
-                ads[index].link = link;
-
-                if (imageInput.files.length > 0) {
-                    ads[index].image = await readFileAsDataURL(imageInput.files[0]);
+                const index = ads.findIndex(a => a.id === id);
+                if (index !== -1) {
+                    ads[index].title = title;
+                    ads[index].description = description;
+                    ads[index].type = type;
+                    ads[index].date = date;
+                    ads[index].link = link;
+                    
+                    if (imageInput.files.length > 0) {
+                        ads[index].image = await readFileAsDataURL(imageInput.files[0]);
+                    }
                 }
             } else {
-                const newId = Math.max(0, ...ads.map(a => Number(a.id) || 0)) + 1;
+                const newId = Math.max(0, ...ads.map(a => a.id)) + 1;
                 ads.push({
                     id: newId,
                     title,
@@ -1514,28 +1463,7 @@ function saveAds(event) {
                 });
             }
             
-            const currentAdId = id || ads[ads.length - 1]?.id;
-            const currentAd = ads.find(adItem => Number(adItem.id) === Number(currentAdId));
-            if (!currentAd) {
-                throw new Error('تعذر تجهيز بيانات الإعلان للحفظ.');
-            }
-            const englishAds = getStoredList(EnglishStorageKeys.ADS);
-            const existingEnglishAd = englishAds.find(adItem => Number(adItem.id) === Number(currentAd.id)) || {};
-            const englishAd = {
-                ...existingEnglishAd,
-                id: currentAd.id,
-                title: normalizeText(document.getElementById('adsTitleEn')?.value) || title,
-                description: normalizeText(document.getElementById('adsDescriptionEn')?.value) || description,
-                image: currentAd.image || existingEnglishAd.image || '',
-                type: normalizeText(document.getElementById('adsTypeEn')?.value) || type,
-                date: date || existingEnglishAd.date || '',
-                link: link || existingEnglishAd.link || ''
-            };
-            const englishIndex = englishAds.findIndex(adItem => Number(adItem.id) === Number(englishAd.id));
-            if (englishIndex === -1) englishAds.push(englishAd);
-            else englishAds[englishIndex] = { ...englishAds[englishIndex], ...englishAd };
             getfirebase.setItem(StorageKeys.ADS, JSON.stringify(ads));
-            getfirebase.setItem(EnglishStorageKeys.ADS, JSON.stringify(englishAds));
             loadAds();
             updateDashboardStats();
             closeAdsModal();
@@ -1558,7 +1486,9 @@ function editAd(id) {
 
 function deleteAd(id) {
     if (confirm('هل أنت متأكد من حذف هذا الإعلان؟')) {
-        removeLocalizedRecord(StorageKeys.ADS, EnglishStorageKeys.ADS, id);
+        let ads = JSON.parse(getfirebase.getItem(StorageKeys.ADS) || '[]');
+        ads = ads.filter(a => a.id !== id);
+        getfirebase.setItem(StorageKeys.ADS, JSON.stringify(ads));
         loadAds();
         updateDashboardStats();
         addRecentUpdate('تم حذف إعلان');
