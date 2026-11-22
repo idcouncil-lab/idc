@@ -111,36 +111,10 @@ const dateTranslationsEn = {
     }
 };
 
-const eventTranslationsEn = {
-    'مهرجان التمور العراقية': { title: 'Iraqi Dates Festival', date: 'October 2024', location: 'Baghdad', type: 'Annual', description: 'A major annual festival showcasing Iraqi date varieties, with farmers participating from across the governorates.' },
-    'ورش تدريبية للمزارعين': { title: 'Farmer Training Workshops', date: 'Year-round', location: 'All Governorates', type: 'Ongoing', description: 'Specialized training in palm cultivation, date care, and modern storage techniques.' },
-    'ملتقى المصدرين': { title: 'Exporters Forum', date: 'June and December', location: 'Basra', type: 'Semi-Annual', description: 'Regular meetings between local producers and international importers to strengthen foreign trade.' }
-};
-
-const councilTranslationsEn = {
-    'أ.د محمد عبدالله الخيال': { name: 'Prof. Dr. Mohammed Abdullah Al-Khayal', position: 'Council President', category: 'Management', bio: 'A specialist in agricultural economics and the development of Iraq\'s dates industry, with more than 20 years of experience.' },
-    'أ.د فاطمة محمود': { name: 'Prof. Dr. Fatima Mahmoud', position: 'Vice President', category: 'Management', bio: 'An expert in agricultural marketing and international trade who has led several successful export projects.' },
-    'د. علي حسن الشمري': { name: 'Dr. Ali Hassan Al-Shammari', position: 'Deputy Director General', category: 'Management', bio: 'A specialist in scientific research and date-variety development with recognized international publications.' },
-    'أ. سامح عبدالرحمن': { name: 'Samih Abdulrahman', position: 'Head of Quality and Standards', category: 'Specialist', bio: 'An expert in international quality standards who oversees auditing and accreditation.' },
-    'م. زيد الحسين': { name: 'Zaid Al-Hussein', position: 'Head of Technical Affairs', category: 'Technical', bio: 'A specialist in modern date-processing and packaging technologies who advises farmers.' },
-    'أ. هيفاء سالم': { name: 'Haifa Salem', position: 'Basra Governorate Representative', category: 'Governorates', bio: 'Represents Basra Governorate and coordinates activities across the governorate.' }
-};
-
-const studyTranslationsEn = {
-    'دراسة إنتاجية التمور في العراق 2023': { title: 'Date Production in Iraq 2023', description: 'A comprehensive study of date production across the Iraqi governorates in 2023.' },
-    'تقرير الجودة والمعايير للتمور المصدرة': { title: 'Quality and Standards Report for Exported Dates', description: 'A detailed report on quality standards applied to dates exported from Iraq.' }
-};
-
-const adTranslationsEn = {
-    'معرض التمور الدولي 2024': { title: 'International Dates Exhibition 2024', description: 'Join us at the largest international dates exhibition in the Middle East.', type: 'Exhibition' },
-    'منتدى المزارعين العراقيين': { title: 'Iraqi Farmers Forum', description: 'An annual forum bringing farmers and experts together to discuss the latest technologies.', type: 'Forum' }
-};
-
 // ── Get data from unifiedStorage (with Arabic fallback) ─────────────
 async function getStorageData(keyEn, keyAr) {
     const st = window.unifiedStorage;
     if (!st) return null;
-    try {
     let raw = await st.getItem(keyEn);
     if (!raw || raw === 'null' || raw === '[]' || raw === '') {
         if (keyAr) raw = await st.getItem(keyAr);
@@ -167,32 +141,6 @@ async function getStorageData(keyEn, keyAr) {
         }
         return null;
     }
-    } catch (error) {
-        console.error('Failed to load stored data for', keyEn, error);
-        return null;
-    }
-}
-
-function mergeLocalizedRecords(englishRecords, arabicRecords, translations, sourceField) {
-    const english = Array.isArray(englishRecords) ? englishRecords : [];
-    const arabic = Array.isArray(arabicRecords) ? arabicRecords : [];
-    const byId = new Map(english.map((record, index) => [String(record.id ?? `index-${index}`), record]));
-    const arabicIds = new Set();
-
-    const mergedArabic = arabic.map((record, index) => {
-        const id = String(record.id ?? `index-${index}`);
-        arabicIds.add(id);
-        const existing = byId.get(id) || {};
-        const translation = translations[String(record[sourceField] ?? '').trim()] || {};
-        const translated = { ...record, ...existing };
-        Object.entries(translation).forEach(([field, value]) => {
-            if (!existing[field] || /[\u0600-\u06FF]/.test(String(existing[field]))) translated[field] = value;
-        });
-        translated.image = record.image || existing.image || '';
-        return translated;
-    });
-
-    return [...mergedArabic, ...english.filter((record, index) => !arabicIds.has(String(record.id ?? `index-${index}`)))];
 }
 
 // ── Placeholder card ─────────────────────────────────────────────────
@@ -212,7 +160,15 @@ async function loadDatesDataEn() {
         getStorageData(StorageKeysEn.DATES, null),
         getStorageData(StorageKeysEn.DATES_AR, null)
     ]);
-    const dates = mergeLocalizedRecords(englishDates, arabicDates, dateTranslationsEn, 'name');
+    const translatedDates = (arabicDates || []).flatMap(date => {
+        const translation = dateTranslationsEn[String(date.name ?? '').trim()];
+        return translation ? [{ ...date, ...translation }] : [];
+    });
+    const translatedNames = new Set(translatedDates.map(date => String(date.name).trim().toLowerCase()));
+    const additionalEnglishDates = (englishDates || []).filter(date =>
+        !translatedNames.has(String(date.name ?? '').trim().toLowerCase())
+    );
+    const dates = [...translatedDates, ...additionalEnglishDates];
 
     if (!dates.length) {
         container.innerHTML = emptyMsg('No date varieties available yet');
@@ -250,11 +206,7 @@ async function loadEventsDataEn() {
     if (!container) return;
     container.innerHTML = emptyMsg('Loading...');
 
-    const [englishEvents, arabicEvents] = await Promise.all([
-        getStorageData(StorageKeysEn.EVENTS, null),
-        getStorageData(StorageKeysEn.EVENTS_AR, null)
-    ]);
-    const events = mergeLocalizedRecords(englishEvents, arabicEvents, eventTranslationsEn, 'title');
+    const events = await getStorageData(StorageKeysEn.EVENTS, StorageKeysEn.EVENTS_AR);
     if (!events || !events.length) {
         container.innerHTML = emptyMsg('No events available');
         return;
@@ -291,11 +243,7 @@ async function loadCouncilDataEn() {
     if (!container) return;
     container.innerHTML = emptyMsg('Loading...');
 
-    const [englishMembers, arabicMembers] = await Promise.all([
-        getStorageData(StorageKeysEn.COUNCIL, null),
-        getStorageData('iraq_dates_council', null)
-    ]);
-    const members = mergeLocalizedRecords(englishMembers, arabicMembers, councilTranslationsEn, 'name');
+    const members = await getStorageData(StorageKeysEn.COUNCIL, null);
     if (!members || !members.length) {
         container.innerHTML = emptyMsg('No council members available');
         return;
@@ -372,11 +320,7 @@ async function loadStudiesDataEn() {
     if (!container) return;
     container.innerHTML = emptyMsg('Loading...');
 
-    const [englishStudies, arabicStudies] = await Promise.all([
-        getStorageData(StorageKeysEn.STUDIES, null),
-        getStorageData(StorageKeysEn.STUDIES_AR, null)
-    ]);
-    const studies = mergeLocalizedRecords(englishStudies, arabicStudies, studyTranslationsEn, 'title');
+    const studies = await getStorageData(StorageKeysEn.STUDIES, StorageKeysEn.STUDIES_AR);
     if (!studies || !studies.length) {
         container.innerHTML = emptyMsg('No studies available yet');
         return;
@@ -396,7 +340,7 @@ async function loadStudiesDataEn() {
             </div>
             ${s.description ? `<p class="text-stone-600 leading-relaxed mb-6">${escapeHTML(s.description)}</p>` : ''}
             ${s.fileData
-                ? `<button onclick="downloadStudyEn(${s.id})"
+                ? `<button onclick="downloadStudyEn(${Number(s.id)||0})"
                       class="inline-flex items-center gap-2 px-6 py-3 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-all font-semibold">
                       <i data-lucide="download" class="w-5 h-5"></i>Download PDF
                    </button>`
@@ -426,11 +370,7 @@ async function loadAdsDataEn() {
     if (!container) return;
     container.innerHTML = emptyMsg('Loading...');
 
-    const [englishAds, arabicAds] = await Promise.all([
-        getStorageData(StorageKeysEn.ADS, null),
-        getStorageData(StorageKeysEn.ADS_AR, null)
-    ]);
-    const ads = mergeLocalizedRecords(englishAds, arabicAds, adTranslationsEn, 'title');
+    const ads = await getStorageData(StorageKeysEn.ADS, StorageKeysEn.ADS_AR);
     if (!ads || !ads.length) {
         container.innerHTML = emptyMsg('No advertisements available yet');
         return;
@@ -453,15 +393,15 @@ async function loadAdsDataEn() {
                 <h3 class="text-xl font-bold text-stone-800 mb-3">${escapeHTML(ad.title)}</h3>
                 ${ad.description ? `
                 <div class="mb-4">
-                    <p id="en-ad-short-${ad.id}" class="text-stone-600 leading-relaxed line-clamp-2">${escapeHTML(ad.description)}</p>
-                    <p id="en-ad-full-${ad.id}"  class="text-stone-600 leading-relaxed hidden">${escapeHTML(ad.description)}</p>
+                    <p id="en-ad-short-${Number(ad.id)||0}" class="text-stone-600 leading-relaxed line-clamp-2">${escapeHTML(ad.description)}</p>
+                    <p id="en-ad-full-${Number(ad.id)||0}"  class="text-stone-600 leading-relaxed hidden">${escapeHTML(ad.description)}</p>
                 </div>` : ''}
                 <div class="flex flex-wrap items-center gap-3">
                     ${hasLong ? `
-                    <button id="en-ad-btn-${ad.id}" onclick="toggleEnAdDesc(${ad.id})"
+                    <button id="en-ad-btn-${Number(ad.id)||0}" onclick="toggleEnAdDesc(${Number(ad.id)||0})"
                         class="inline-flex items-center gap-1 text-amber-600 hover:text-amber-700 font-semibold text-sm transition-colors">
-                        <i data-lucide="chevron-down" class="w-4 h-4" id="en-ad-icon-${ad.id}"></i>
-                        <span id="en-ad-btn-text-${ad.id}">Read More</span>
+                        <i data-lucide="chevron-down" class="w-4 h-4" id="en-ad-icon-${Number(ad.id)||0}"></i>
+                        <span id="en-ad-btn-text-${Number(ad.id)||0}">Read More</span>
                     </button>` : ''}
                     ${link ? `
                     <a href="${link}" target="_blank" rel="noopener noreferrer"
@@ -579,7 +519,7 @@ function showNotificationEn(message, type = 'success') {
     const n = document.createElement('div');
     n.className = `fixed top-24 left-1/2 -translate-x-1/2 px-6 py-4 rounded-xl shadow-2xl z-50 transition-all duration-500 flex items-center gap-3 ${
         type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`;
-    n.innerHTML = `<i data-lucide="${type==='success'?'check-circle':'alert-circle'}" class="w-5 h-5"></i><span class="font-semibold">${message}</span>`;
+    n.innerHTML = `<i data-lucide="${type==='success'?'check-circle':'alert-circle'}" class="w-5 h-5"></i><span class="font-semibold">${escapeHTML(message)}</span>`;
     document.body.appendChild(n);
     lucide.createIcons();
     setTimeout(() => { n.style.opacity = '0'; setTimeout(() => n.remove(), 500); }, 3500);
@@ -639,9 +579,14 @@ function initCounterAnimation() {
 }
 
 function switchLanguage(lang) {
-    if (lang === 'ar') location.href = 'index.html';
-    else if (lang === 'en') location.href = 'index-en.html';
+    // Remember the choice first; otherwise index.html reads the stale value and redirects back.
+    if (lang !== 'ar' && lang !== 'en') return;
+    try { localStorage.setItem('siteLang', lang); } catch (e) {}
+    location.href = (lang === 'ar' ? 'index.html' : 'index-en.html') + '?lang=' + lang;
 }
+
+// Visiting the English page means English is the current choice.
+try { localStorage.setItem('siteLang', 'en'); } catch (e) {}
 
 // =====================================================================
 // 10. BOOT

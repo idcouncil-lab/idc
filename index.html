@@ -2,6 +2,8 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.emailjs.com https://www.gstatic.com; frame-src https://*.firebaseapp.com; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>مجلس التمور العراقي | الرئيسية</title>
 
@@ -51,8 +53,8 @@
       "sameAs": []
     }
     </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="tailwind.css">
+    <script src="vendor/lucide-0.577.0.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -587,9 +589,10 @@
         </div>
     </footer>
 
+    <script src="contact-guard.js"></script>
     <script src="firebase-storage.js"></script>
     <script src="script.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script src="vendor/emailjs-4.4.1.min.js"></script>
     <script>
         // ==========================================
         // ضع هنا بياناتك من EmailJS
@@ -664,9 +667,7 @@ function detectPreferredLanguage() {
     const savedLang = localStorage.getItem('siteLang');
     if (savedLang === 'ar' || savedLang === 'en') return savedLang;
 
-    const browserLang = (navigator.languages || [navigator.language || 'ar'])[0] || 'ar';
-    if (/^en/i.test(browserLang)) return 'en';
-    if (/^ar/i.test(browserLang)) return 'ar';
+    // Default is Arabic; English only when the visitor explicitly chose it.
     return 'ar';
 }
 
@@ -985,19 +986,18 @@ function applyLanguage(lang) {
 
 function toggleLanguage() {
     const current = window.currentLang || document.documentElement.lang || 'ar';
-    const target = current === 'ar' ? 'index-en.html' : 'index.html';
-    window.location.href = target;
+    const next = current === 'ar' ? 'en' : 'ar';
+    try { localStorage.setItem('siteLang', next); } catch (e) {}
+    window.location.href = (next === 'en' ? 'index-en.html' : 'index.html') + '?lang=' + next;
 }
 
 // Redirect to correct language homepage on load
 document.addEventListener('DOMContentLoaded', () => {
-    const saved = localStorage.getItem('siteLang');
-    if (saved === 'en') {
-        window.location.href = 'index-en.html';
-    } else if (saved === 'ar') {
+    // currentLang already resolves: ?lang= in URL > saved choice > Arabic
+    if (window.currentLang === 'en') {
+        window.location.replace('index-en.html');
+    } else {
         applyLanguage('ar');
-    } else if (window.currentLang === 'en') {
-        window.location.href = 'index-en.html';
     }
 });
 </script>
