@@ -1,0 +1,29 @@
+rules_version = '2';
+// Firestore rules for the Iraqi Dates Council site.
+// 1) Put the real admin UID(s) below (Firebase Console > Authentication > Users > User UID).
+// 2) Deploy:  firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null
+          && request.auth.uid in ['REPLACE_WITH_ADMIN_UID'];
+    }
+
+    // Public site content (events, dates, council, studies, ads, settings): world-readable, admin-writable.
+    // Contact messages are admin-only (the contact form uses EmailJS, not Firestore).
+    match /siteData/{key} {
+      allow read: if !(key.matches('iraq_dates_messages.*')) || isAdmin();
+      allow create, update: if isAdmin()
+                            && request.resource.data.keys().hasOnly(['value', 'updatedAt'])
+                            && request.resource.data.value is string
+                            && request.resource.data.value.size() < 950000;
+      allow delete: if isAdmin();
+    }
+
+    // Everything else is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

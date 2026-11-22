@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://idcouncil-lab.github.io/idc/sitemap.xml

@@ -1,0 +1,9 @@
+rules_version = '2';
+// The site does not use Firebase Storage (files are stored as data URLs in Firestore). Deny everything.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
