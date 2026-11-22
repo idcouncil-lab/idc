@@ -94,10 +94,13 @@ const fbReady = (async () => {
             const unsub = onAuthStateChanged(auth, user => {
                 unsub();
                 if (!user) {
+                    if (window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        console.warn('No Firebase auth user; continuing in local-only admin mode.');
+                        res(null);
+                        return;
+                    }
                     location.href = 'admin-login.html';
-                    return;
                 } else {
-                    if (window.__revealAdmin) window.__revealAdmin();
                     res(user);
                 }
             });
@@ -330,8 +333,8 @@ function loadEvents() {
             <td class="px-6 py-4 text-stone-600">${esc(ev.location)}</td>
             <td class="px-6 py-4">${badge(TYPE_COLORS,ev.type)}</td>
             <td class="px-6 py-4"><div class="flex gap-2">
-                <button onclick="editEvent(${Number(ev.id)||0})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
-                <button onclick="deleteEvent(${Number(ev.id)||0})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                <button onclick="editEvent(${ev.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                <button onclick="deleteEvent(${ev.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div></td>
         </tr>`).join('');
     lucide.createIcons();
@@ -380,8 +383,8 @@ function loadDates() {
             <td class="px-6 py-4 text-stone-600">${esc(d.size)}</td>
             <td class="px-6 py-4">${badge(CLASS_COLORS,d.classification)}</td>
             <td class="px-6 py-4"><div class="flex gap-2">
-                <button onclick="editDate(${Number(d.id)||0})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
-                <button onclick="deleteDate(${Number(d.id)||0})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                <button onclick="editDate(${d.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                <button onclick="deleteDate(${d.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div></td>
         </tr>`).join('');
     lucide.createIcons();
@@ -426,8 +429,8 @@ function loadCouncil() {
             <div class="relative h-48 bg-stone-100 group">
                 <img src="${safeImg(m.image)||'https://placehold.co/400x300?text=Member'}" class="w-full h-full object-cover" alt="">
                 <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <button onclick="editCouncil(${Number(m.id)||0})" class="p-2 bg-blue-600 text-white rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
-                    <button onclick="deleteCouncil(${Number(m.id)||0})" class="p-2 bg-red-600 text-white rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <button onclick="editCouncil(${m.id})" class="p-2 bg-blue-600 text-white rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                    <button onclick="deleteCouncil(${m.id})" class="p-2 bg-red-600 text-white rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>
             </div>
             <div class="p-4">
@@ -487,14 +490,14 @@ function loadStudies() {
             <td class="px-6 py-4 text-stone-600 text-sm">${esc(s.date||'—')}</td>
             <td class="px-6 py-4">
                 ${s.fileData
-                    ? `<button onclick="downloadStudyAdmin(${Number(s.id)||0})" class="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-sm font-semibold">
+                    ? `<button onclick="downloadStudyAdmin(${s.id})" class="flex items-center gap-1 text-amber-600 hover:text-amber-700 text-sm font-semibold">
                          <i data-lucide="download" class="w-4 h-4"></i>${esc(s.fileName||'Download')}
                        </button>`
                     : '<span class="text-stone-300 text-sm">No file</span>'}
             </td>
             <td class="px-6 py-4 text-center"><div class="flex gap-2 justify-center">
-                <button onclick="editStudy(${Number(s.id)||0})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
-                <button onclick="deleteStudy(${Number(s.id)||0})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                <button onclick="editStudy(${s.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                <button onclick="deleteStudy(${s.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div></td>
         </tr>`).join('');
     lucide.createIcons();
@@ -554,8 +557,8 @@ function loadAds() {
                 <p class="text-stone-500 text-sm line-clamp-2 mb-3">${esc(ad.description||'')}</p>
                 ${ad.link?`<a href="${safeUrl(ad.link)}" target="_blank" class="text-xs text-blue-500 hover:underline block mb-3 truncate">${esc(ad.link)}</a>`:''}
                 <div class="flex gap-2">
-                    <button onclick="editAd(${Number(ad.id)||0})" class="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">Edit</button>
-                    <button onclick="deleteAd(${Number(ad.id)||0})" class="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700">Delete</button>
+                    <button onclick="editAd(${ad.id})" class="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">Edit</button>
+                    <button onclick="deleteAd(${ad.id})" class="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700">Delete</button>
                 </div>
             </div>
         </div>`).join('');
@@ -617,7 +620,7 @@ function loadMessages() {
                     <p class="text-stone-700 leading-relaxed">${esc(m.message)}</p>
                     ${m.time?`<p class="text-stone-400 text-xs mt-3">${esc(m.time)}</p>`:''}
                 </div>
-                <button onclick="deleteMessage(${Number(m.id)||0})" class="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors shrink-0">
+                <button onclick="deleteMessage(${m.id})" class="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors shrink-0">
                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                 </button>
             </div>
@@ -724,7 +727,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         else arr.push(data);
         store.setJSON(StorageKeys.EVENTS, arr);
         closeEventModal(); loadEvents(); updateStats();
-        addUpdate(`Event ${id?'updated':'added'}: ${esc(data.title)}`);
+        addUpdate(`Event ${id?'updated':'added'}: ${data.title}`);
     });
 
     // ── Date form ──────────────────────────────────────────────────
@@ -749,7 +752,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         else arr.push(data);
         store.setJSON(StorageKeys.DATES, arr);
         closeDateModal(); loadDates(); updateStats();
-        addUpdate(`Date variety ${id?'updated':'added'}: ${esc(data.name)}`);
+        addUpdate(`Date variety ${id?'updated':'added'}: ${data.name}`);
     });
 
     // ── Council form ───────────────────────────────────────────────
@@ -776,7 +779,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         else arr.push(data);
         store.setJSON(StorageKeys.COUNCIL, arr);
         closeCouncilModal(); loadCouncil(); updateStats();
-        addUpdate(`Member ${id?'updated':'added'}: ${esc(data.name)}`);
+        addUpdate(`Member ${id?'updated':'added'}: ${data.name}`);
     });
 
     // ── Studies form ───────────────────────────────────────────────

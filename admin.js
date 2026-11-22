@@ -93,7 +93,6 @@ async function initializeFirebaseStore() {
                     console.warn('المستخدم غير مسجّل في Firebase Auth، إعادة التوجيه...');
                     window.location.href = 'admin-login.html';
                 }
-                if (user && window.__revealAdmin) window.__revealAdmin();
                 resolve(user);
             });
         });
@@ -156,10 +155,6 @@ const UploadConstraints = {
     studyMimeTypes: ['application/pdf'],
     adImageMimeTypes: ['image/jpeg', 'image/png', 'image/webp']
 };
-
-function safeId(value) {
-    return String(value ?? '').replace(/[^A-Za-z0-9_-]/g, '');
-}
 
 function escapeHTML(value) {
     return String(value ?? '')
@@ -517,22 +512,22 @@ function loadEvents() {
     tbody.innerHTML = events.map(event => `
         <tr class="hover:bg-stone-50 transition-colors">
             <td class="px-6 py-4">
-                <img src="${sanitizeImageSource(event.image)}" alt="${escapeHTML(event.title)}" class="w-16 h-16 rounded-lg object-cover">
+                <img src="${event.image}" alt="${event.title}" class="w-16 h-16 rounded-lg object-cover">
             </td>
-            <td class="px-6 py-4 font-medium text-stone-800">${escapeHTML(event.title)}</td>
-            <td class="px-6 py-4 text-stone-600">${escapeHTML(event.date)}</td>
-            <td class="px-6 py-4 text-stone-600">${escapeHTML(event.location)}</td>
+            <td class="px-6 py-4 font-medium text-stone-800">${event.title}</td>
+            <td class="px-6 py-4 text-stone-600">${event.date}</td>
+            <td class="px-6 py-4 text-stone-600">${event.location}</td>
             <td class="px-6 py-4">
                 <span class="px-3 py-1 rounded-full text-xs font-semibold ${getTypeColor(event.type)}">
-                    ${escapeHTML(event.type)}
+                    ${event.type}
                 </span>
             </td>
             <td class="px-6 py-4">
                 <div class="flex gap-2">
-                    <button onclick="editEvent(${safeId(event.id)})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                    <button onclick="editEvent(${event.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="deleteEvent(${safeId(event.id)})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <button onclick="deleteEvent(${event.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
@@ -621,22 +616,22 @@ function loadDates() {
     tbody.innerHTML = dates.map(date => `
         <tr class="hover:bg-stone-50 transition-colors">
             <td class="px-6 py-4">
-                <img src="${sanitizeImageSource(date.image)}" alt="${escapeHTML(date.name)}" class="w-16 h-16 rounded-lg object-cover">
+                <img src="${date.image}" alt="${date.name}" class="w-16 h-16 rounded-lg object-cover">
             </td>
-            <td class="px-6 py-4 font-medium text-stone-800">${escapeHTML(date.name)}</td>
-            <td class="px-6 py-4 text-stone-600 text-sm max-w-xs truncate">${escapeHTML(date.description)}</td>
-            <td class="px-6 py-4 text-stone-600">${escapeHTML(date.size)}</td>
+            <td class="px-6 py-4 font-medium text-stone-800">${date.name}</td>
+            <td class="px-6 py-4 text-stone-600 text-sm max-w-xs truncate">${date.description}</td>
+            <td class="px-6 py-4 text-stone-600">${date.size}</td>
             <td class="px-6 py-4">
                 <span class="px-3 py-1 rounded-full text-xs font-semibold ${getClassColor(date.classification)}">
-                    ${escapeHTML(date.classification)}
+                    ${date.classification}
                 </span>
             </td>
             <td class="px-6 py-4">
                 <div class="flex gap-2">
-                    <button onclick="editDate(${safeId(date.id)})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                    <button onclick="editDate(${date.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="deleteDate(${safeId(date.id)})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    <button onclick="deleteDate(${date.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
@@ -729,24 +724,24 @@ function loadMessages() {
                         <i data-lucide="user" class="w-6 h-6 text-amber-600"></i>
                     </div>
                     <div>
-                        <h4 class="font-bold text-stone-800">${escapeHTML(msg.name)}</h4>
-                        <p class="text-sm text-stone-500">${escapeHTML(msg.email)}</p>
+                        <h4 class="font-bold text-stone-800">${msg.name}</h4>
+                        <p class="text-sm text-stone-500">${msg.email}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-sm text-stone-400">${escapeHTML(msg.date)}</span>
+                    <span class="text-sm text-stone-400">${msg.date}</span>
                     <button onclick="deleteMessage(${index})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
             </div>
             <div class="bg-stone-50 rounded-xl p-4 mb-3">
-                <p class="text-stone-600 text-sm mb-2"><span class="font-semibold">الموضوع:</span> ${escapeHTML(msg.subject)}</p>
-                <p class="text-stone-700">${escapeHTML(msg.message)}</p>
+                <p class="text-stone-600 text-sm mb-2"><span class="font-semibold">الموضوع:</span> ${msg.subject}</p>
+                <p class="text-stone-700">${msg.message}</p>
             </div>
             <div class="flex items-center gap-2 text-sm text-stone-500">
                 <i data-lucide="clock" class="w-4 h-4"></i>
-                <span>تاريخ الإرسال: ${escapeHTML(msg.timestamp)}</span>
+                <span>تاريخ الإرسال: ${msg.timestamp}</span>
             </div>
         </div>
     `).join('');
@@ -934,28 +929,28 @@ function loadCouncil() {
     grid.innerHTML = council.map(member => `
         <div class="bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
             <div class="relative overflow-hidden h-48 bg-stone-100">
-                <img src="${sanitizeImageSource(member.image)}" alt="${escapeHTML(member.name)}" class="w-full h-full object-cover">
+                <img src="${member.image}" alt="${member.name}" class="w-full h-full object-cover">
                 <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <button onclick="editCouncil(${safeId(member.id)})" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    <button onclick="editCouncil(${member.id})" class="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                         <i data-lucide="edit" class="w-4 h-4"></i>
                     </button>
-                    <button onclick="deleteCouncil(${safeId(member.id)})" class="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                    <button onclick="deleteCouncil(${member.id})" class="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
             </div>
             <div class="p-4">
-                <h3 class="font-bold text-stone-800 mb-1">${escapeHTML(member.name)}</h3>
-                <p class="text-sm text-amber-600 font-semibold mb-2">${escapeHTML(member.position)}</p>
+                <h3 class="font-bold text-stone-800 mb-1">${member.name}</h3>
+                <p class="text-sm text-amber-600 font-semibold mb-2">${member.position}</p>
                 <div class="mb-3">
                     <span class="px-2 py-1 rounded-full text-xs font-semibold ${getCategoryColor(member.category)}">
-                        ${escapeHTML(member.category)}
+                        ${member.category}
                     </span>
                 </div>
-                <p class="text-stone-600 text-sm mb-3 line-clamp-2">${escapeHTML(member.bio)}</p>
+                <p class="text-stone-600 text-sm mb-3 line-clamp-2">${member.bio}</p>
                 <div class="space-y-1 text-xs text-stone-500">
-                    <p class="flex items-center gap-2"><i data-lucide="mail" class="w-3 h-3"></i> ${escapeHTML(member.email)}</p>
-                    <p class="flex items-center gap-2"><i data-lucide="phone" class="w-3 h-3"></i> ${escapeHTML(member.phone)}</p>
+                    <p class="flex items-center gap-2"><i data-lucide="mail" class="w-3 h-3"></i> ${member.email}</p>
+                    <p class="flex items-center gap-2"><i data-lucide="phone" class="w-3 h-3"></i> ${member.phone}</p>
                 </div>
             </div>
         </div>
@@ -1103,8 +1098,8 @@ function loadRecentUpdates() {
     container.innerHTML = updates.map(u => `
         <div class="flex items-center gap-3 text-sm border-b border-stone-100 pb-2 last:border-0">
             <i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i>
-            <span class="flex-1 text-stone-700">${escapeHTML(u.text)}</span>
-            <span class="text-stone-400 text-xs">${escapeHTML(u.time)}</span>
+            <span class="flex-1 text-stone-700">${u.text}</span>
+            <span class="text-stone-400 text-xs">${u.time}</span>
         </div>
     `).join('');
     
@@ -1134,10 +1129,10 @@ function loadStudies() {
                 </td>
                 <td class="px-6 py-4">
                     <div class="flex gap-2">
-                        <button onclick="editStudy(${safeId(study.id)})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                        <button onclick="editStudy(${study.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                             <i data-lucide="edit" class="w-4 h-4"></i>
                         </button>
-                        <button onclick="deleteStudy(${safeId(study.id)})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                        <button onclick="deleteStudy(${study.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </div>
@@ -1337,10 +1332,10 @@ function loadAds() {
                     <h3 class="text-lg font-bold text-stone-800 mb-2">${escapeHTML(ad.title)}</h3>
                     <p class="text-stone-600 text-sm mb-4 line-clamp-2">${escapeHTML(ad.description)}</p>
                     <div class="flex gap-2">
-                        <button onclick="editAd(${safeId(ad.id)})" class="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors text-sm">
+                        <button onclick="editAd(${ad.id})" class="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors text-sm">
                             تعديل
                         </button>
-                        <button onclick="deleteAd(${safeId(ad.id)})" class="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors text-sm">
+                        <button onclick="deleteAd(${ad.id})" class="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors text-sm">
                             حذف
                         </button>
                     </div>

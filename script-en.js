@@ -340,7 +340,7 @@ async function loadStudiesDataEn() {
             </div>
             ${s.description ? `<p class="text-stone-600 leading-relaxed mb-6">${escapeHTML(s.description)}</p>` : ''}
             ${s.fileData
-                ? `<button onclick="downloadStudyEn(${Number(s.id)||0})"
+                ? `<button onclick="downloadStudyEn(${s.id})"
                       class="inline-flex items-center gap-2 px-6 py-3 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-all font-semibold">
                       <i data-lucide="download" class="w-5 h-5"></i>Download PDF
                    </button>`
@@ -393,15 +393,15 @@ async function loadAdsDataEn() {
                 <h3 class="text-xl font-bold text-stone-800 mb-3">${escapeHTML(ad.title)}</h3>
                 ${ad.description ? `
                 <div class="mb-4">
-                    <p id="en-ad-short-${Number(ad.id)||0}" class="text-stone-600 leading-relaxed line-clamp-2">${escapeHTML(ad.description)}</p>
-                    <p id="en-ad-full-${Number(ad.id)||0}"  class="text-stone-600 leading-relaxed hidden">${escapeHTML(ad.description)}</p>
+                    <p id="en-ad-short-${ad.id}" class="text-stone-600 leading-relaxed line-clamp-2">${escapeHTML(ad.description)}</p>
+                    <p id="en-ad-full-${ad.id}"  class="text-stone-600 leading-relaxed hidden">${escapeHTML(ad.description)}</p>
                 </div>` : ''}
                 <div class="flex flex-wrap items-center gap-3">
                     ${hasLong ? `
-                    <button id="en-ad-btn-${Number(ad.id)||0}" onclick="toggleEnAdDesc(${Number(ad.id)||0})"
+                    <button id="en-ad-btn-${ad.id}" onclick="toggleEnAdDesc(${ad.id})"
                         class="inline-flex items-center gap-1 text-amber-600 hover:text-amber-700 font-semibold text-sm transition-colors">
-                        <i data-lucide="chevron-down" class="w-4 h-4" id="en-ad-icon-${Number(ad.id)||0}"></i>
-                        <span id="en-ad-btn-text-${Number(ad.id)||0}">Read More</span>
+                        <i data-lucide="chevron-down" class="w-4 h-4" id="en-ad-icon-${ad.id}"></i>
+                        <span id="en-ad-btn-text-${ad.id}">Read More</span>
                     </button>` : ''}
                     ${link ? `
                     <a href="${link}" target="_blank" rel="noopener noreferrer"
@@ -519,7 +519,7 @@ function showNotificationEn(message, type = 'success') {
     const n = document.createElement('div');
     n.className = `fixed top-24 left-1/2 -translate-x-1/2 px-6 py-4 rounded-xl shadow-2xl z-50 transition-all duration-500 flex items-center gap-3 ${
         type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`;
-    n.innerHTML = `<i data-lucide="${type==='success'?'check-circle':'alert-circle'}" class="w-5 h-5"></i><span class="font-semibold">${escapeHTML(message)}</span>`;
+    n.innerHTML = `<i data-lucide="${type==='success'?'check-circle':'alert-circle'}" class="w-5 h-5"></i><span class="font-semibold">${message}</span>`;
     document.body.appendChild(n);
     lucide.createIcons();
     setTimeout(() => { n.style.opacity = '0'; setTimeout(() => n.remove(), 500); }, 3500);
@@ -579,14 +579,9 @@ function initCounterAnimation() {
 }
 
 function switchLanguage(lang) {
-    // Remember the choice first; otherwise index.html reads the stale value and redirects back.
-    if (lang !== 'ar' && lang !== 'en') return;
-    try { localStorage.setItem('siteLang', lang); } catch (e) {}
-    location.href = (lang === 'ar' ? 'index.html' : 'index-en.html') + '?lang=' + lang;
+    if (lang === 'ar') location.href = 'index.html';
+    else if (lang === 'en') location.href = 'index-en.html';
 }
-
-// Visiting the English page means English is the current choice.
-try { localStorage.setItem('siteLang', 'en'); } catch (e) {}
 
 // =====================================================================
 // 10. BOOT

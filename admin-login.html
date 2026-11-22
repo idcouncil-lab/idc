@@ -3,16 +3,14 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://api.emailjs.com https://www.gstatic.com; frame-src https://*.firebaseapp.com; object-src 'none'; base-uri 'self'; form-action 'self'">
-<meta name="robots" content="noindex, nofollow">
 <title>تسجيل الدخول</title>
 </head>
 <body>
 
 <h2>دخول الإدارة</h2>
 
-<input type="email" id="email" autocomplete="username" placeholder="البريد"><br><br>
-<input type="password" id="password" autocomplete="current-password" placeholder="كلمة المرور"><br><br>
+<input type="email" id="email" placeholder="البريد"><br><br>
+<input type="password" id="password" placeholder="كلمة المرور"><br><br>
 
 <button onclick="login()">دخول</button>
 
@@ -33,27 +31,20 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 window.login = function() {
-  // client-side throttle (Firebase also rate-limits server-side)
-  let st = {n: 0, until: 0};
-  try { st = JSON.parse(localStorage.getItem('loginThrottle') || '{"n":0,"until":0}'); } catch (_) {}
-  if (Date.now() < st.until) { alert("محاولات كثيرة. حاول لاحقًا."); return; }
 
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value;
-  if (!email || !password) { alert("بيانات غير صحيحة"); return; }
+const email = document.getElementById("email").value;
+const password = document.getElementById("password").value;
 
-  signInWithEmailAndPassword(auth, email, password)
-    .then(() => {
-      try { localStorage.removeItem('loginThrottle'); } catch (_) {}
-      window.location.href = "admin.html";
-    })
-    .catch(() => {
-      st.n = (st.n || 0) + 1;
-      if (st.n >= 5) { st.until = Date.now() + 5 * 60 * 1000; st.n = 0; }
-      try { localStorage.setItem('loginThrottle', JSON.stringify(st)); } catch (_) {}
-      alert("بيانات غير صحيحة");
-    });
-};
+signInWithEmailAndPassword(auth, email, password)
+.then(() => {
+sessionStorage.setItem('adminLoggedIn', 'true');
+window.location.href = "admin.html";
+})
+.catch(() => {
+alert("بيانات غير صحيحة");
+});
+
+}
 </script>
 
 </body>
