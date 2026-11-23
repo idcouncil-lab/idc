@@ -25,15 +25,6 @@ function escapeHTML(v) {
         .replace(/&/g,'&amp;').replace(/</g,'&lt;')
         .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
-function summarizeDateDescriptionEn(value, maxLength = 88) {
-    const description = String(value ?? '').replace(/\s+/g, ' ').trim();
-    if (description.length <= maxLength) return description;
-
-    const preview = description.slice(0, maxLength);
-    const lastSpace = preview.lastIndexOf(' ');
-    const end = lastSpace >= maxLength * 0.65 ? lastSpace : maxLength;
-    return `${preview.slice(0, end).trimEnd()}…`;
-}
 function sanitizeHttpUrl(v) {
     const raw = String(v ?? '').trim();
     if (!raw) return '';
@@ -48,69 +39,6 @@ function sanitizeImageSrc(v) {
     catch { return ''; }
 }
 
-const dateTranslationsEn = {
-    'البرحي': {
-        name: 'Barhi',
-        description: 'One of Iraq\'s finest and most prized date varieties; Basra is considered its original home.\nCharacteristics: It can be eaten at every stage (khalal, rutab, and tamr). It is sweet and lacks the bitter tannins even at the yellow khalal stage.\nAppearance: Nearly round fruit, golden yellow at khalal and turning amber-brown when fully ripe.',
-        size: 'Medium', classification: 'Premium'
-    },
-    'الزهدي': {
-        name: 'Zahdi',
-        description: 'Iraq\'s most widespread variety, accounting for about 40% of the country\'s date palms.\nCharacteristics: A semi-dry date with excellent storage life.\nAppearance: Oval, light yellowish-brown.\nUses: Eaten fresh or processed into date syrup, vinegar, and alcohol.',
-        size: 'Large', classification: 'Popular'
-    },
-    'الخستاوي': {
-        name: 'Khistawi',
-        description: 'A very well-known soft date associated with Baghdadi culture and a popular local saying: “Baghdad is built on dates; peel one and eat Khistawi.”\nCharacteristics: Very soft, low in fiber, and pleasantly sweet.\nAppearance: Elongated oval, reddish-brown at the tamr stage.\nUses: Often pressed and stored for winter; also used in madqouqa sweets and pastries.',
-        size: 'Small', classification: 'Rare'
-    },
-    'الحلاوي': {
-        name: 'Halawi',
-        description: 'An important commercial variety that ripens early and is widely grown in Basra.\nCharacteristics: Medium-sized fruit with a buttery flavor reminiscent of peanut butter.\nAppearance: Elongated oval with a dark amber color.',
-        size: 'Large', classification: 'Premium'
-    },
-    'تمر الساير (الأسطه عمران)': {
-        name: 'Sayer (Al-Ustah Imran)',
-        description: 'A well-known Basra variety and an important commercial export date.\nCharacteristics: Mid-early ripening, high quality, and resistant to environmental conditions.\nAppearance and flavor: Light brown, darkening during storage, with a distinctive sweet taste.',
-        size: 'Small', classification: 'Rare'
-    },
-    'الخضراوي': {
-        name: 'Khadrawi',
-        description: 'An old and distinctive variety grown in the Shatt al-Arab area and central Iraq.\nCharacteristics: A globally traded variety, very soft and juicy.\nAppearance: Medium-sized fruit, greenish in its early stages and dark brown when ripe.',
-        size: 'Medium', classification: 'Rare'
-    },
-    'الديري': {
-        name: 'Dayri',
-        description: 'Appearance and ripening: The unripe bisr stage is purplish-red; the rutab stage turns pinkish-red, while the fully ripe tamr becomes dark reddish-brown with a pink waxy bloom.\nFlavor and texture: Pleasantly sweet with a distinctive flavor; low in fiber or nearly fiber-free, making it comfortable to eat.',
-        size: 'Small', classification: 'Premium'
-    },
-    'البرين': {
-        name: 'Bireen',
-        description: 'Digestive health: Rich in fiber, which supports bowel movement and helps promote fullness.\nEnergy: Natural sugars provide a quick source of energy.\nHeart and bone support: Contains essential minerals including potassium, magnesium, calcium, and phosphorus.',
-        size: 'Medium', classification: 'Popular'
-    },
-    'مكتوم': {
-        name: 'Maktoum',
-        description: 'A top-grade variety, noted for its large size and honey-like flavor, without an especially high sugar content.',
-        size: 'Medium', classification: 'Premium'
-    },
-    'القرنفلي': {
-        name: 'Qarnufali',
-        description: 'Among Iraq\'s most expensive varieties; it is widely cultivated in Mandali, Diyala.',
-        size: 'Medium', classification: 'Rare'
-    },
-    'الاشرسي': {
-        name: 'Ashrasi',
-        description: 'A premium variety grown in central Iraq, known for its distinctive flavor and firm texture.',
-        size: 'Medium', classification: 'Popular'
-    },
-    'الساعي': {
-        name: 'Al-Sa\'i',
-        description: 'A distinctive soft date variety associated with Anbar Governorate, particularly the Kubeisa area.',
-        size: 'Medium', classification: 'Rare'
-    }
-};
-
 // ── Get data from unifiedStorage (with Arabic fallback) ─────────────
 async function getStorageData(keyEn, keyAr) {
     const st = window.unifiedStorage;
@@ -119,28 +47,49 @@ async function getStorageData(keyEn, keyAr) {
     if (!raw || raw === 'null' || raw === '[]' || raw === '') {
         if (keyAr) raw = await st.getItem(keyAr);
     }
-    if (!raw || raw === 'null' || raw === '[]' || raw === '') {
-        raw = window.localStorage.getItem(keyEn) || raw;
-        if ((!raw || raw === 'null' || raw === '[]' || raw === '') && keyAr) {
-            raw = window.localStorage.getItem(keyAr) || raw;
-        }
-    }
     if (!raw || raw === 'null' || raw === '[]' || raw === '') return null;
-    try { return JSON.parse(raw); }
-    catch (err) {
-        console.warn('Failed to parse stored JSON for', keyEn, err);
-        const fallbackRaw = window.localStorage.getItem(keyEn);
-        if (fallbackRaw && fallbackRaw !== raw) {
-            try { return JSON.parse(fallbackRaw); } catch {}
-        }
-        if (keyAr) {
-            const fallbackArRaw = window.localStorage.getItem(keyAr);
-            if (fallbackArRaw) {
-                try { return JSON.parse(fallbackArRaw); } catch {}
-            }
-        }
-        return null;
+    try { return JSON.parse(raw); } catch { return null; }
+}
+
+const knownDateTranslations = {
+    'البرحي': { name: 'Barhi', size: 'Medium', classification: 'Premium', description: 'Premium dates with a golden color and a balanced sweet flavor.' },
+    'الزهدي': { name: 'Zahdi', size: 'Large', classification: 'Popular', description: 'One of the most popular varieties, with a golden yellow color and delicious taste.' },
+    'الخستاوي': { name: 'Khadrawi', size: 'Small', classification: 'Rare', description: 'Rare dates with a soft texture and a distinctive flavor.' },
+    'الديري': { name: 'Dayri', size: 'Large', classification: 'Premium', description: 'One of the finest varieties, red in color and rich in benefits.' }
+};
+
+const knownCouncilTranslations = {
+    'أ.د محمد عبدالله الخيال': { name: 'Prof. Dr. Mohammed Abdullah Al-Khayal', position: 'Council President', category: 'Management', bio: 'A specialist in agricultural economics and the development of the Iraqi dates industry, with more than 20 years of experience.' },
+    'أ.د فاطمة محمود': { name: 'Prof. Dr. Fatima Mahmoud', position: 'Vice President', category: 'Management', bio: 'An expert in agricultural marketing and international trade who has led several successful export projects.' },
+    'د. علي حسن الشمري': { name: 'Dr. Ali Hassan Al-Shammari', position: 'Deputy Director General', category: 'Management', bio: 'A specialist in scientific research and date varieties development with recognized international publications.' },
+    'أ. سامح عبدالرحمن': { name: 'Samih Abdulrahman', position: 'Head of Quality and Standards', category: 'Specialist', bio: 'An expert in international quality standards who oversees auditing and certification operations.' },
+    'م. زيد الحسين': { name: 'Zaid Al-Hussein', position: 'Head of Technical Affairs', category: 'Technical', bio: 'A specialist in modern date processing and packaging technologies who provides consulting to farmers.' },
+    'أ. هيفاء سالم': { name: 'Haifa Salem', position: 'Basra Governorate Representative', category: 'Governorates', bio: 'Responsible for representing Basra Governorate and coordinating activities in the governorate.' }
+};
+
+async function getTranslatedList(keyEn, keyAr, translate) {
+    const english = await getStorageData(keyEn, null) || [];
+    const arabic = await getStorageData(keyAr, null) || [];
+    if (!arabic.length) return english;
+
+    const englishById = new Map(english.map(item => [Number(item.id), item]));
+    const merged = arabic.map(item => {
+        const existingEnglish = englishById.get(Number(item.id)) || {};
+        const translated = translate(item) || {};
+        return {
+            ...item,
+            ...existingEnglish,
+            ...translated,
+            image: item.image || existingEnglish.image || ''
+        };
+    });
+
+    if (window.unifiedStorage && JSON.stringify(merged) !== JSON.stringify(english)) {
+        window.unifiedStorage.setItem(keyEn, JSON.stringify(merged)).catch(error => {
+            console.warn(`English migration failed for ${keyEn}:`, error);
+        });
     }
+    return merged;
 }
 
 // ── Placeholder card ─────────────────────────────────────────────────
@@ -156,21 +105,8 @@ async function loadDatesDataEn() {
     if (!container) return;
     container.innerHTML = emptyMsg('Loading...');
 
-    const [englishDates, arabicDates] = await Promise.all([
-        getStorageData(StorageKeysEn.DATES, null),
-        getStorageData(StorageKeysEn.DATES_AR, null)
-    ]);
-    const translatedDates = (arabicDates || []).flatMap(date => {
-        const translation = dateTranslationsEn[String(date.name ?? '').trim()];
-        return translation ? [{ ...date, ...translation }] : [];
-    });
-    const translatedNames = new Set(translatedDates.map(date => String(date.name).trim().toLowerCase()));
-    const additionalEnglishDates = (englishDates || []).filter(date =>
-        !translatedNames.has(String(date.name ?? '').trim().toLowerCase())
-    );
-    const dates = [...translatedDates, ...additionalEnglishDates];
-
-    if (!dates.length) {
+    const dates = await getTranslatedList(StorageKeysEn.DATES, StorageKeysEn.DATES_AR, date => knownDateTranslations[date.name]);
+    if (!dates || !dates.length) {
         container.innerHTML = emptyMsg('No date varieties available yet');
         return;
     }
@@ -178,22 +114,16 @@ async function loadDatesDataEn() {
     container.innerHTML = dates.map(d => {
         const img = sanitizeImageSrc(d.image || '');
         return `
-        <article data-date-card-en data-date-name="${escapeHTML(d.name)}" data-date-size="${escapeHTML(d.size || '')}" data-date-classification="${escapeHTML(d.classification || d.class || '')}" data-date-description="${escapeHTML(d.description || '')}" class="bg-white/10 backdrop-blur-md rounded-2xl hover:bg-white/20 transition-all overflow-hidden">
-            <button type="button" data-date-toggle-en aria-haspopup="dialog" class="block w-full p-3 text-left group">
-            <span class="relative block overflow-hidden rounded-xl h-32 mb-3">
+        <div class="bg-white/10 backdrop-blur-md p-3 rounded-2xl hover:bg-white/20 transition-all group cursor-pointer text-center">
+            <div class="relative overflow-hidden rounded-xl h-32 mb-3">
                 ${img
                     ? `<img src="${img}" alt="${escapeHTML(d.name)}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">`
-                    : `<span class="w-full h-full bg-white/10 flex items-center justify-center"><i data-lucide="image-off" class="w-8 h-8 text-stone-400"></i></span>`}
-            </span>
-            <span class="block text-left font-bold text-white text-sm">${escapeHTML(d.name)}</span>
-            <span class="mt-2 flex items-center justify-between gap-2 text-xs">
-                <span class="text-stone-400">Size: ${escapeHTML(d.size || 'Not specified')}</span>
-                <span class="text-amber-300">${escapeHTML(d.classification || d.class || '')}</span>
-            </span>
-            <span class="block text-xs text-stone-400 mt-1 line-clamp-2">${escapeHTML(summarizeDateDescriptionEn(d.description))}</span>
-            <span class="block text-xs text-amber-300 mt-3">View details</span>
-            </button>
-        </article>`;
+                    : `<div class="w-full h-full bg-white/10 flex items-center justify-center"><i data-lucide="image-off" class="w-8 h-8 text-stone-400"></i></div>`}
+            </div>
+            <h3 class="font-bold text-white text-sm">${escapeHTML(d.name)}</h3>
+            <p class="text-xs text-amber-300 mt-1">${escapeHTML(d.classification || d.class || '')}</p>
+            <p class="text-xs text-stone-400 mt-1 line-clamp-2">${escapeHTML(d.description || '')}</p>
+        </div>`;
     }).join('');
     lucide.createIcons();
 }
@@ -243,7 +173,7 @@ async function loadCouncilDataEn() {
     if (!container) return;
     container.innerHTML = emptyMsg('Loading...');
 
-    const members = await getStorageData(StorageKeysEn.COUNCIL, null);
+    const members = await getTranslatedList(StorageKeysEn.COUNCIL, 'iraq_dates_council', member => knownCouncilTranslations[member.name]);
     if (!members || !members.length) {
         container.innerHTML = emptyMsg('No council members available');
         return;
@@ -252,17 +182,29 @@ async function loadCouncilDataEn() {
     container.innerHTML = members.map((m, i) => {
         const img = sanitizeImageSrc(m.image || '');
         return `
-        <div class="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all overflow-hidden hover:-translate-y-1 transform duration-300 group cursor-pointer"
-             onclick="openMemberModalEn(${i})">
-            <div class="relative h-40 overflow-hidden bg-gradient-to-br from-amber-400 to-amber-600">
+        <div class="bg-white/10 backdrop-blur-md rounded-2xl overflow-hidden hover:bg-white/20 transition-all group">
+            <div class="relative overflow-hidden aspect-square">
                 ${img
-                    ? `<img src="${img}" alt="${escapeHTML(m.name)}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">`
-                    : `<div class="w-full h-full flex items-center justify-center"><i data-lucide="user" class="w-12 h-12 text-amber-200"></i></div>`}
+                    ? `<img src="${img}" alt="${escapeHTML(m.name)}" class="w-full h-full object-contain bg-stone-200 group-hover:scale-110 transition-transform duration-300">`
+                    : `<div class="w-full h-full flex items-center justify-center bg-stone-200"><i data-lucide="user" class="w-12 h-12 text-stone-400"></i></div>`}
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+                <div class="absolute bottom-0 left-0 right-0 p-4 text-white">
+                    <h3 class="text-xl font-bold mb-1">${escapeHTML(m.name)}</h3>
+                    <p class="text-amber-300 font-semibold text-sm">${escapeHTML(m.position || '')}</p>
+                </div>
+                <span class="absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500 text-white">
+                    ${escapeHTML(m.category || '')}
+                </span>
             </div>
-            <div class="p-4 text-center">
-                <h3 class="font-bold text-stone-800">${escapeHTML(m.name)}</h3>
-                <p class="text-amber-600 text-sm font-semibold mt-1">${escapeHTML(m.position || '')}</p>
-                ${m.category ? `<span class="mt-2 inline-block px-2 py-1 bg-amber-50 text-amber-700 text-xs rounded-full">${escapeHTML(m.category)}</span>` : ''}
+            <div class="p-4 bg-stone-900">
+                <p class="text-stone-300 text-sm mb-3 line-clamp-2">${escapeHTML(m.bio || '')}</p>
+                <div class="space-y-2 text-xs text-stone-400 border-t border-stone-700 pt-3 mb-3">
+                    ${m.email ? `<p class="flex items-center gap-2 hover:text-amber-400 transition-colors"><i data-lucide="mail" class="w-3 h-3"></i><span>${escapeHTML(m.email)}</span></p>` : ''}
+                    ${m.phone ? `<p class="flex items-center gap-2"><i data-lucide="phone" class="w-3 h-3"></i><span>${escapeHTML(m.phone)}</span></p>` : ''}
+                </div>
+                <button onclick="openMemberModalEn(${i})" class="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
+                    <i data-lucide="info" class="w-4 h-4"></i>Details
+                </button>
             </div>
         </div>`;
     }).join('');
@@ -285,21 +227,23 @@ function openMemberModalEn(index) {
         document.body.appendChild(modal);
     }
     modal.innerHTML = `
-        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden">
-            <div class="relative h-56 bg-gradient-to-br from-amber-400 to-amber-600">
-                ${img ? `<img src="${img}" alt="${escapeHTML(m.name)}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center"><i data-lucide="user" class="w-16 h-16 text-amber-200"></i></div>`}
-                <button onclick="closeMemberModalEn()" class="absolute top-4 right-4 w-9 h-9 bg-black/40 hover:bg-black/60 rounded-full flex items-center justify-center text-white transition-colors">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeMemberModalEn()"></div>
+        <div class="relative bg-stone-900 text-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden z-10 border border-stone-700">
+            <button onclick="closeMemberModalEn()" class="absolute top-4 left-4 w-9 h-9 bg-stone-700 hover:bg-stone-600 rounded-full flex items-center justify-center transition-colors z-20">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <div class="w-full h-56 overflow-hidden relative">
+                ${img ? `<img src="${img}" alt="${escapeHTML(m.name)}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center bg-stone-800"><i data-lucide="user" class="w-16 h-16 text-stone-400"></i></div>`}
+                <div class="absolute inset-0 bg-gradient-to-t from-stone-900/80 to-transparent"></div>
+                <div class="absolute bottom-0 right-0 p-5"><span class="px-3 py-1 bg-amber-500 text-white text-xs font-bold rounded-full">${escapeHTML(m.category || '')}</span></div>
             </div>
             <div class="p-6">
-                <h3 class="text-2xl font-bold text-stone-800">${escapeHTML(m.name)}</h3>
-                <p class="text-amber-600 font-semibold mt-1">${escapeHTML(m.position || '')}</p>
-                ${m.category ? `<span class="mt-2 inline-block px-3 py-1 bg-amber-50 text-amber-700 text-sm rounded-full">${escapeHTML(m.category)}</span>` : ''}
-                ${m.bio ? `<p class="text-stone-600 mt-4 leading-relaxed">${escapeHTML(m.bio)}</p>` : ''}
-                <div class="mt-4 space-y-2">
-                    ${m.email ? `<p class="flex items-center gap-2 text-stone-600"><i data-lucide="mail" class="w-4 h-4 text-amber-600"></i>${escapeHTML(m.email)}</p>` : ''}
-                    ${m.phone ? `<p class="flex items-center gap-2 text-stone-600"><i data-lucide="phone" class="w-4 h-4 text-amber-600"></i>${escapeHTML(m.phone)}</p>` : ''}
+                <h3 class="text-2xl font-bold mb-1 text-white">${escapeHTML(m.name)}</h3>
+                <p class="text-amber-400 font-semibold mb-4 text-sm">${escapeHTML(m.position || '')}</p>
+                <p class="text-stone-300 text-sm leading-relaxed mb-5">${escapeHTML(m.bio || '')}</p>
+                <div class="space-y-2 text-sm text-stone-400 border-t border-stone-700 pt-4">
+                    ${m.email ? `<p class="flex items-center gap-2"><i data-lucide="mail" class="w-4 h-4 text-amber-400"></i>${escapeHTML(m.email)}</p>` : ''}
+                    ${m.phone ? `<p class="flex items-center gap-2"><i data-lucide="phone" class="w-4 h-4 text-amber-400"></i>${escapeHTML(m.phone)}</p>` : ''}
                 </div>
             </div>
         </div>`;
@@ -457,20 +401,12 @@ async function loadSettingsEn() {
 function initContactFormEn() {
     const form = document.getElementById('contactFormEn');
     if (!form) return;
-
-    // If EmailJS is loaded on the page, use the inline EmailJS handler instead of local/Firebase storage.
-    if (window.emailjs && typeof emailjs.send === 'function') {
-        console.log('English contact form will use EmailJS; skipping storage fallback.');
-        return;
-    }
-
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
         const btn    = document.getElementById('submitBtnEn');
         const status = document.getElementById('formStatusEn');
         const name   = document.getElementById('senderNameEn')?.value.trim();
         const email  = document.getElementById('senderEmailEn')?.value.trim();
-        const phone  = document.getElementById('senderPhoneEn')?.value.trim();
         const subj   = document.getElementById('senderSubjectEn')?.value.trim();
         const msg    = document.getElementById('senderMessageEn')?.value.trim();
         if (!name || !email || !msg) {
@@ -487,7 +423,7 @@ function initContactFormEn() {
             }
             messages.push({
                 id: Date.now(),
-                name, email, phone,
+                name, email,
                 subject: subj || 'General Inquiry',
                 message: msg,
                 time: new Date().toLocaleString('en-US')
@@ -597,43 +533,6 @@ function loadAllEn() {
 
 document.addEventListener('DOMContentLoaded', function () {
     lucide.createIcons();
-
-    const datesContainer = document.getElementById('datesContainerEn');
-    const dateDetailsDialog = document.getElementById('dateDetailsDialogEn');
-    if (datesContainer && dateDetailsDialog) {
-        datesContainer.addEventListener('click', function(event) {
-            const toggle = event.target.closest('[data-date-toggle-en]');
-            if (!toggle || !datesContainer.contains(toggle)) return;
-
-            const card = toggle.closest('[data-date-card-en]');
-            if (!card) return;
-
-            const image = document.getElementById('dateDetailsImageEn');
-            const cardImage = card.querySelector('img');
-            image.src = cardImage ? cardImage.src : '';
-            image.alt = card.dataset.dateName || '';
-            image.hidden = !cardImage;
-            document.getElementById('dateDetailsTitleEn').textContent = card.dataset.dateName || '';
-            document.getElementById('dateDetailsMetadataEn').textContent =
-                `Size: ${card.dataset.dateSize || 'Not specified'} · ${card.dataset.dateClassification || 'Unclassified'}`;
-            document.getElementById('dateDetailsDescriptionEn').textContent = card.dataset.dateDescription || '';
-            dateDetailsDialog.showModal();
-        });
-
-        document.getElementById('closeDateDetailsEn').addEventListener('click', function() {
-            dateDetailsDialog.close();
-        });
-        dateDetailsDialog.addEventListener('click', function(event) {
-            if (event.target === dateDetailsDialog) dateDetailsDialog.close();
-        });
-        dateDetailsDialog.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                dateDetailsDialog.close();
-            }
-        });
-    }
-
     initScrollAnimations();
     initNavbar();
     initMobileMenu();

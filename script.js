@@ -10,41 +10,6 @@ function switchLanguage(lang) {
 // Initialize Lucide Icons
 document.addEventListener('DOMContentLoaded', function() {
     lucide.createIcons();
-
-    const datesContainer = document.getElementById('datesContainer');
-    const dateDetailsDialog = document.getElementById('dateDetailsDialog');
-    if (datesContainer) {
-        datesContainer.addEventListener('click', function(event) {
-            const toggle = event.target.closest('[data-date-toggle]');
-            if (!toggle || !datesContainer.contains(toggle)) return;
-
-            const card = toggle.closest('[data-date-card]');
-            if (!card || !dateDetailsDialog) return;
-
-            const image = document.getElementById('dateDetailsImage');
-            image.src = card.dataset.dateImage || '';
-            image.alt = card.dataset.dateName || '';
-            image.hidden = !card.dataset.dateImage;
-            document.getElementById('dateDetailsTitle').textContent = card.dataset.dateName || '';
-            document.getElementById('dateDetailsDescription').textContent = card.dataset.dateDescription || '';
-            dateDetailsDialog.showModal();
-        });
-    }
-
-    if (dateDetailsDialog) {
-        document.getElementById('closeDateDetails').addEventListener('click', function() {
-            dateDetailsDialog.close();
-        });
-        dateDetailsDialog.addEventListener('click', function(event) {
-            if (event.target === dateDetailsDialog) dateDetailsDialog.close();
-        });
-        dateDetailsDialog.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                dateDetailsDialog.close();
-            }
-        });
-    }
     
     // Initialize all animations and interactions
     initScrollAnimations();
@@ -70,16 +35,6 @@ function escapeHTML(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
-}
-
-function summarizeDateDescription(value, maxLength = 88) {
-    const description = String(value ?? '').replace(/\s+/g, ' ').trim();
-    if (description.length <= maxLength) return description;
-
-    const preview = description.slice(0, maxLength);
-    const lastSpace = preview.lastIndexOf(' ');
-    const end = lastSpace >= maxLength * 0.65 ? lastSpace : maxLength;
-    return `${preview.slice(0, end).trimEnd()}…`;
 }
 
 function sanitizeHttpUrl(value) {
@@ -511,25 +466,24 @@ async function loadDatesData() {
     }
     
     container.innerHTML = dates.map(date => `
-        <article data-date-card data-date-name="${escapeHTML(date.name)}" data-date-image="${sanitizeImageSource(date.image)}" data-date-description="${escapeHTML(date.description)}" class="bg-white/10 backdrop-blur-md rounded-2xl overflow-hidden hover:bg-white/20 transition-all">
-            <button type="button" data-date-toggle aria-haspopup="dialog" class="block w-full text-right group">
-                <span class="relative block overflow-hidden h-48">
-                    <img src="${sanitizeImageSource(date.image)}" alt="${escapeHTML(date.name)}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
-                    <span class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end">
-                        <span class="w-full p-4 text-white text-sm font-semibold">${escapeHTML(date.classification)}</span>
-                    </span>
-                </span>
-                <span class="block p-4">
-                    <span class="block text-lg font-bold text-white mb-2">${escapeHTML(date.name)}</span>
-                    <span class="block text-sm text-stone-400 mb-3 line-clamp-2">${escapeHTML(summarizeDateDescription(date.description))}</span>
-                    <span class="flex items-center justify-between">
-                        <span class="text-xs text-amber-300 font-semibold">${escapeHTML(date.size)}</span>
-                        <span class="text-xs text-stone-400">${escapeHTML(date.classification)}</span>
-                    </span>
-                    <span class="mt-3 block text-xs text-amber-300" data-date-toggle-label>${isEnglish ? 'Show details' : 'عرض التفاصيل'}</span>
-                </span>
-            </button>
-        </article>
+        <div class="bg-white/10 backdrop-blur-md rounded-2xl overflow-hidden hover:bg-white/20 transition-all group cursor-pointer">
+            <div class="relative overflow-hidden h-48">
+                <img src="${date.image}" alt="${date.name}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end">
+                    <div class="w-full p-4">
+                        <p class="text-white text-sm font-semibold">${date.classification}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4">
+                <h3 class="text-lg font-bold text-white mb-2">${date.name}</h3>
+                <p class="text-sm text-stone-400 mb-3 line-clamp-2">${date.description}</p>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-amber-300 font-semibold">${date.size}</span>
+                    <span class="text-xs text-stone-400">${date.classification}</span>
+                </div>
+            </div>
+        </div>
     `).join('');
     
     lucide.createIcons();

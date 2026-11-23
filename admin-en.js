@@ -14,6 +14,15 @@ const StorageKeys = {
     MESSAGES: 'iraq_dates_messages_en',
 };
 
+const ArabicStorageKeys = {
+    EVENTS: 'iraq_dates_events',
+    DATES: 'iraq_dates_types',
+    COUNCIL: 'iraq_dates_council',
+    STUDIES: 'iraq_dates_studies',
+    ADS: 'iraq_dates_ads',
+    SETTINGS: 'iraq_dates_settings'
+};
+
 // ── Firebase config ──────────────────────────────────────────────────
 const FIREBASE_CFG = {
     apiKey:            'AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o',
@@ -30,17 +39,6 @@ const cache = new Map();
 let fsDocApi   = null;
 let fbEnabled  = false;
 
-function isEmptyJsonContainer(value) {
-    if (value === null || value === undefined || value === 'null' || value === '') return true;
-    try {
-        const parsed = JSON.parse(String(value));
-        return (Array.isArray(parsed) && parsed.length === 0)
-            || (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.keys(parsed).length === 0);
-    } catch {
-        return false;
-    }
-}
-
 const store = {
     get(key) {
         if (cache.has(key)) return cache.get(key);
@@ -52,8 +50,8 @@ const store = {
         try {
             localStorage.setItem(key, v);
         } catch (err) {
-            console.error('localStorage.setItem failed for', key, err);
-            addUpdate('Failed to save local data: ' + key);
+            console.error('localStorage.setItem quota exceeded for', key, err);
+            addUpdate('Local storage full — failed to save: ' + key);
         }
         if (fsDocApi) fsDocApi.set(key, v).catch(e => console.error('FB write', key, e));
     },
@@ -63,16 +61,49 @@ const store = {
         if (fsDocApi) fsDocApi.remove(key).catch(() => {});
     },
     getJSON(key, fallback = []) {
-        try {
-            return JSON.parse(this.get(key) || 'null') ?? fallback;
-        } catch (err) {
-            console.warn(`Invalid JSON detected for ${key}, clearing corrupt storage`, err);
-            this.remove(key);
-            return fallback;
-        }
+        try { return JSON.parse(this.get(key) || 'null') ?? fallback; }
+        catch { return fallback; }
     },
     setJSON(key, val) { this.set(key, JSON.stringify(val)); },
 };
+
+function syncArabicRecord(englishKey, arabicKey, englishRecord) {
+    const arabicRecords = store.getJSON(arabicKey, []);
+    const index = arabicRecords.findIndex(record => Number(record.id) === Number(englishRecord.id));
+    const current = index === -1 ? {} : arabicRecords[index];
+    const arabicRecord = {
+        ...current,
+        id: englishRecord.id,
+        title: current.title || englishRecord.title,
+        name: current.name || englishRecord.name,
+        date: englishRecord.date || current.date,
+        location: current.location || englishRecord.location,
+        type: current.type || englishRecord.type,
+        description: current.description || englishRecord.description,
+        classification: current.classification || englishRecord.classification,
+        size: current.size || englishRecord.size,
+        position: current.position || englishRecord.position,
+        category: current.category || englishRecord.category,
+        bio: current.bio || englishRecord.bio,
+        email: englishRecord.email || current.email,
+        phone: englishRecord.phone || current.phone,
+        image: englishRecord.image || current.image,
+        link: englishRecord.link || current.link,
+        file: englishRecord.file || current.file,
+        fileName: englishRecord.fileName || current.fileName,
+        fileType: englishRecord.fileType || current.fileType,
+        fileData: englishRecord.fileData || current.fileData
+    };
+    if (index === -1) arabicRecords.push(arabicRecord);
+    else arabicRecords[index] = arabicRecord;
+    store.setJSON(englishKey, store.getJSON(englishKey, []));
+    store.setJSON(arabicKey, arabicRecords);
+}
+
+function removeArabicRecord(englishKey, arabicKey, id) {
+    store.setJSON(englishKey, store.getJSON(englishKey, []).filter(record => Number(record.id) !== Number(id)));
+    store.setJSON(arabicKey, store.getJSON(arabicKey, []).filter(record => Number(record.id) !== Number(id)));
+}
 
 // ── Firebase init ────────────────────────────────────────────────────
 const fbReady = (async () => {
@@ -114,37 +145,19 @@ const fbReady = (async () => {
         };
 
         // Sync all keys
-        await Promise.all(Object.values(StorageKeys).map(async key => {
+        await Promise.all([...Object.values(StorageKeys), ...Object.values(ArabicStorageKeys)].map(async key => {
             const snap = await getDoc(doc(db, FS_COL, key));
-            const local = localStorage.getItem(key);
             if (snap.exists()) {
-                const value = snap.data().value;
-                const remoteValue = value === null || value === undefined ? null : String(value);
-
-                if (remoteValue !== null && !isEmptyJsonContainer(remoteValue)) {
-                    cache.set(key, remoteValue);
-                    localStorage.setItem(key, remoteValue);
-                } else if (local !== null && !isEmptyJsonContainer(local)) {
-                    cache.set(key, local);
-                    await fsDocApi.set(key, local);
-                } else if (remoteValue !== null) {
-                    cache.set(key, remoteValue);
-                    localStorage.setItem(key, remoteValue);
-                }
+                const v = String(snap.data().value ?? '');
+                cache.set(key, v); localStorage.setItem(key, v);
             } else {
-                if (local !== null) {
-                    cache.set(key, local);
-                    await fsDocApi.set(key, local);
-                }
+                const local = localStorage.getItem(key);
+                if (local !== null) { cache.set(key, local); await fsDocApi.set(key, local); }
             }
             onSnapshot(doc(db, FS_COL, key), next => {
-                if (!next.exists()) return;
-                const value = next.data().value;
-                const remoteValue = value === null || value === undefined ? null : String(value);
-                if (remoteValue === null) return;
-                if (isEmptyJsonContainer(remoteValue) && local !== null && !isEmptyJsonContainer(local)) return;
-                cache.set(key, remoteValue);
-                localStorage.setItem(key, remoteValue);
+                if (!next.exists()) { cache.delete(key); localStorage.removeItem(key); return; }
+                const v = String(next.data().value ?? '');
+                cache.set(key, v); localStorage.setItem(key, v);
             });
         }));
 
@@ -161,57 +174,9 @@ const trim       = v => String(v ?? '').trim();
 const safeUrl    = v => { const r = trim(v); if (!r) return ''; try { const u = new URL(r, location.href); return ['http:','https:'].includes(u.protocol) ? u.href : ''; } catch { return ''; } };
 const safeImg    = v => { const r = trim(v); if (!r) return ''; if (/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(r)) return r; try { const u = new URL(r, location.href); return ['http:','https:'].includes(u.protocol) ? u.href : ''; } catch { return ''; } };
 const fmtSize    = b => { if (!b) return '0 B'; const k=1024, s=['B','KB','MB','GB']; const i=Math.floor(Math.log(b)/Math.log(k)); return (b/Math.pow(k,i)).toFixed(2)+' '+s[i]; };
-const MAX_IMAGE_BYTES = 180 * 1024;
-const MAX_IMAGE_WIDTH = 1200;
-function validateImageFile(file, label) {
-    if (!file) return true;
-    if (file.size > MAX_IMAGE_BYTES) {
-        alert(`${label} image is too large. Please choose an image smaller than ${Math.round(MAX_IMAGE_BYTES / 1024)} KB.`);
-        return false;
-    }
-    return true;
-}
-async function readFile(file) {
-    return new Promise((res, rej) => {
-        const reader = new FileReader();
-        reader.onload = e => res(e.target.result);
-        reader.onerror = rej;
-        reader.readAsDataURL(file);
-    });
-}
-function loadImage(src) {
-    return new Promise((res, rej) => {
-        const img = new Image();
-        img.onload = () => res(img);
-        img.onerror = rej;
-        img.src = src;
-    });
-}
-async function compressImageDataUrl(dataUrl, maxWidth = MAX_IMAGE_WIDTH, quality = 0.75) {
-    const img = await loadImage(dataUrl);
-    const scale = Math.min(1, maxWidth / img.width);
-    const width = Math.round(img.width * scale);
-    const height = Math.round(img.height * scale);
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, width, height);
-    return canvas.toDataURL('image/jpeg', quality);
-}
-async function prepareImageFile(file) {
-    if (!file) return '';
-    const dataUrl = await readFile(file);
-    if (file.size <= MAX_IMAGE_BYTES) return dataUrl;
-    try {
-        const compressed = await compressImageDataUrl(dataUrl);
-        return compressed;
-    } catch (err) {
-        console.warn('Image compression failed, using original image', err);
-        return dataUrl;
-    }
-}
+const readFile   = f => new Promise((res,rej) => { const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(f); });
 const nextId     = arr => Math.max(0, ...arr.map(x => x.id || 0)) + 1;
+
 function addUpdate(text) {
     const list = JSON.parse(localStorage.getItem('iraq_admin_en_updates') || '[]');
     list.unshift({ text, time: new Date().toLocaleString('en-US') });
@@ -362,8 +327,7 @@ function closeEventModal() { document.getElementById('eventModal').classList.add
 function editEvent(id) { openEventModal(id); }
 function deleteEvent(id) {
     if (!confirm('Delete this event?')) return;
-    const arr = store.getJSON(StorageKeys.EVENTS,[]).filter(e=>e.id!==id);
-    store.setJSON(StorageKeys.EVENTS, arr);
+    removeArabicRecord(StorageKeys.EVENTS, ArabicStorageKeys.EVENTS, id);
     loadEvents(); updateStats(); addUpdate('Event deleted');
 }
 
@@ -411,8 +375,7 @@ function closeDateModal() { document.getElementById('dateModal').classList.add('
 function editDate(id) { openDateModal(id); }
 function deleteDate(id) {
     if (!confirm('Delete this variety?')) return;
-    const arr = store.getJSON(StorageKeys.DATES,[]).filter(d=>d.id!==id);
-    store.setJSON(StorageKeys.DATES, arr);
+    removeArabicRecord(StorageKeys.DATES, ArabicStorageKeys.DATES, id);
     loadDates(); updateStats(); addUpdate('Date variety deleted');
 }
 
@@ -468,8 +431,7 @@ function closeCouncilModal() { document.getElementById('councilModal').classList
 function editCouncil(id) { openCouncilModal(id); }
 function deleteCouncil(id) {
     if (!confirm('Delete this member?')) return;
-    const arr = store.getJSON(StorageKeys.COUNCIL,[]).filter(m=>m.id!==id);
-    store.setJSON(StorageKeys.COUNCIL, arr);
+    removeArabicRecord(StorageKeys.COUNCIL, ArabicStorageKeys.COUNCIL, id);
     loadCouncil(); updateStats(); addUpdate('Council member deleted');
 }
 
@@ -532,8 +494,7 @@ function closeStudiesModal() { document.getElementById('studiesModal').classList
 function editStudy(id) { openStudiesModal(id); }
 function deleteStudy(id) {
     if (!confirm('Delete this study?')) return;
-    const arr = store.getJSON(StorageKeys.STUDIES,[]).filter(s=>s.id!==id);
-    store.setJSON(StorageKeys.STUDIES, arr);
+    removeArabicRecord(StorageKeys.STUDIES, ArabicStorageKeys.STUDIES, id);
     loadStudies(); updateStats(); addUpdate('Study deleted');
 }
 
@@ -590,8 +551,7 @@ function closeAdsModal() { document.getElementById('adsModal').classList.add('hi
 function editAd(id) { openAdsModal(id); }
 function deleteAd(id) {
     if (!confirm('Delete this advertisement?')) return;
-    const arr = store.getJSON(StorageKeys.ADS,[]).filter(a=>a.id!==id);
-    store.setJSON(StorageKeys.ADS, arr);
+    removeArabicRecord(StorageKeys.ADS, ArabicStorageKeys.ADS, id);
     loadAds(); updateStats(); addUpdate('Advertisement deleted');
 }
 
@@ -710,9 +670,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         const id = parseInt(document.getElementById('eventId').value);
         const preview = document.getElementById('eventPreview');
         const imgFile = document.getElementById('eventImage').files[0];
-        if (imgFile && !validateImageFile(imgFile, 'Event')) return;
         let imgData = preview.src && !preview.classList.contains('hidden') ? preview.src : '';
-        if (imgFile) imgData = await prepareImageFile(imgFile);
+        if (imgFile) imgData = await readFile(imgFile);
         const data = {
             id: id || Date.now(),
             title:       trim(document.getElementById('eventTitle').value),
@@ -726,6 +685,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (id) { const i=arr.findIndex(x=>x.id===id); if(i>-1) arr[i]=data; }
         else arr.push(data);
         store.setJSON(StorageKeys.EVENTS, arr);
+        syncArabicRecord(StorageKeys.EVENTS, ArabicStorageKeys.EVENTS, data);
         closeEventModal(); loadEvents(); updateStats();
         addUpdate(`Event ${id?'updated':'added'}: ${data.title}`);
     });
@@ -736,9 +696,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         const id = parseInt(document.getElementById('dateId').value);
         const preview = document.getElementById('datePreview');
         const imgFile = document.getElementById('dateImage').files[0];
-        if (imgFile && !validateImageFile(imgFile, 'Date variety')) return;
         let imgData = preview.src && !preview.classList.contains('hidden') ? preview.src : '';
-        if (imgFile) imgData = await prepareImageFile(imgFile);
+        if (imgFile) imgData = await readFile(imgFile);
         const data = {
             id: id || Date.now(),
             name:           trim(document.getElementById('dateName').value),
@@ -751,6 +710,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (id) { const i=arr.findIndex(x=>x.id===id); if(i>-1) arr[i]=data; }
         else arr.push(data);
         store.setJSON(StorageKeys.DATES, arr);
+        syncArabicRecord(StorageKeys.DATES, ArabicStorageKeys.DATES, data);
         closeDateModal(); loadDates(); updateStats();
         addUpdate(`Date variety ${id?'updated':'added'}: ${data.name}`);
     });
@@ -761,9 +721,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         const id = parseInt(document.getElementById('councilId').value);
         const preview = document.getElementById('councilPreview');
         const imgFile = document.getElementById('councilImage').files[0];
-        if (imgFile && !validateImageFile(imgFile, 'Council member')) return;
         let imgData = preview.src && !preview.classList.contains('hidden') ? preview.src : '';
-        if (imgFile) imgData = await prepareImageFile(imgFile);
+        if (imgFile) imgData = await readFile(imgFile);
         const data = {
             id: id || Date.now(),
             name:     trim(document.getElementById('councilName').value),
@@ -778,6 +737,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (id) { const i=arr.findIndex(x=>x.id===id); if(i>-1) arr[i]=data; }
         else arr.push(data);
         store.setJSON(StorageKeys.COUNCIL, arr);
+        syncArabicRecord(StorageKeys.COUNCIL, ArabicStorageKeys.COUNCIL, data);
         closeCouncilModal(); loadCouncil(); updateStats();
         addUpdate(`Member ${id?'updated':'added'}: ${data.name}`);
     });
@@ -803,6 +763,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             arr.push({ id:nextId(arr), title, description:desc, date, fileData:await readFile(f), fileName:f.name });
         }
         store.setJSON(StorageKeys.STUDIES, arr);
+        syncArabicRecord(StorageKeys.STUDIES, ArabicStorageKeys.STUDIES, arr.find(study => Number(study.id) === Number(id || arr[arr.length - 1].id)));
         closeStudiesModal(); loadStudies(); updateStats();
         addUpdate(`Study ${id?'updated':'added'}: ${title}`);
     });
@@ -830,10 +791,9 @@ document.addEventListener('DOMContentLoaded', async function () {
         const imgInput = document.getElementById('adsImage');
         const preview  = document.getElementById('adsPreview');
         const imgFile  = imgInput?.files[0];
-        if (imgFile && !validateImageFile(imgFile, 'Advertisement')) return;
         if (!id && !imgFile) { alert('Please select an image for the new ad.'); return; }
         let imgData = preview.src && !preview.classList.contains('hidden') ? preview.src : '';
-        if (imgFile) imgData = await prepareImageFile(imgFile);
+        if (imgFile) imgData = await readFile(imgFile);
         const arr = store.getJSON(StorageKeys.ADS,[]);
         if (id) {
             const i=arr.findIndex(a=>a.id===id);
@@ -842,6 +802,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             arr.push({ id:nextId(arr), title, description:desc, image:imgData, type, date, link });
         }
         store.setJSON(StorageKeys.ADS, arr);
+        syncArabicRecord(StorageKeys.ADS, ArabicStorageKeys.ADS, arr.find(ad => Number(ad.id) === Number(id || arr[arr.length - 1].id)));
         closeAdsModal(); loadAds(); updateStats();
         addUpdate(`Ad ${id?'updated':'added'}: ${title}`);
     });
@@ -869,6 +830,14 @@ document.addEventListener('DOMContentLoaded', async function () {
             aboutText: trim(document.getElementById('aboutText').value),
         };
         store.setJSON(StorageKeys.SETTINGS, s);
+        store.setJSON(ArabicStorageKeys.SETTINGS, {
+            ...store.getJSON(ArabicStorageKeys.SETTINGS, {}),
+            email: s.email,
+            phone: s.phone,
+            siteTitle: store.getJSON(ArabicStorageKeys.SETTINGS, {}).siteTitle || s.siteTitle,
+            address: store.getJSON(ArabicStorageKeys.SETTINGS, {}).address || s.address,
+            aboutText: store.getJSON(ArabicStorageKeys.SETTINGS, {}).aboutText || s.aboutText
+        });
         alert('Settings saved successfully!');
         addUpdate('Site settings updated');
     });
