@@ -11,6 +11,15 @@ const StorageKeys = {
     MESSAGES: 'iraq_dates_messages'
 };
 
+const EnglishStorageKeys = {
+    EVENTS: 'iraq_dates_events_en',
+    DATES: 'iraq_dates_types_en',
+    COUNCIL: 'iraq_dates_council_en',
+    STUDIES: 'iraq_dates_studies_en',
+    ADS: 'iraq_dates_ads_en',
+    SETTINGS: 'iraq_dates_settings_en'
+};
+
 // Data Management
 const FIREBASE_CONFIG = {
     apiKey: 'AIzaSyD2Y9jQF7XWmo0uegj3uWrQfTKbCAcH97o',
@@ -109,7 +118,7 @@ async function initializeFirebaseStore() {
             }
         };
 
-        await Promise.all(Object.values(StorageKeys).map(async (key) => {
+        await Promise.all([...Object.values(StorageKeys), ...Object.values(EnglishStorageKeys)].map(async (key) => {
             const docRef = doc(db, FIRESTORE_COLLECTION, key);
             const snapshot = await getDoc(docRef);
 
@@ -167,6 +176,35 @@ function escapeHTML(value) {
 
 function normalizeText(value) {
     return String(value ?? '').trim();
+}
+
+function getStoredList(key) {
+    try {
+        return JSON.parse(getfirebase.getItem(key) || '[]');
+    } catch (_) {
+        return [];
+    }
+}
+
+function syncLocalizedRecord(arabicKey, englishKey, arabicRecord, englishRecord) {
+    const arabicRecords = getStoredList(arabicKey);
+    const englishRecords = getStoredList(englishKey);
+    const arabicIndex = arabicRecords.findIndex(record => Number(record.id) === Number(arabicRecord.id));
+    const englishIndex = englishRecords.findIndex(record => Number(record.id) === Number(arabicRecord.id));
+
+    if (arabicIndex === -1) arabicRecords.push(arabicRecord);
+    else arabicRecords[arabicIndex] = arabicRecord;
+
+    if (englishIndex === -1) englishRecords.push(englishRecord);
+    else englishRecords[englishIndex] = { ...englishRecords[englishIndex], ...englishRecord };
+
+    getfirebase.setItem(arabicKey, JSON.stringify(arabicRecords));
+    getfirebase.setItem(englishKey, JSON.stringify(englishRecords));
+}
+
+function removeLocalizedRecord(arabicKey, englishKey, id) {
+    getfirebase.setItem(arabicKey, JSON.stringify(getStoredList(arabicKey).filter(record => Number(record.id) !== Number(id))));
+    getfirebase.setItem(englishKey, JSON.stringify(getStoredList(englishKey).filter(record => Number(record.id) !== Number(id))));
 }
 
 function sanitizeHttpUrl(value) {
@@ -569,6 +607,12 @@ function openEventModal(eventId = null) {
             document.getElementById('eventLocation').value = event.location;
             document.getElementById('eventType').value = event.type;
             document.getElementById('eventDesc').value = event.description;
+            const englishEvent = getStoredList(EnglishStorageKeys.EVENTS).find(item => Number(item.id) === Number(event.id)) || {};
+            document.getElementById('eventTitleEn').value = englishEvent.title || '';
+            document.getElementById('eventDateEn').value = englishEvent.date || '';
+            document.getElementById('eventLocationEn').value = englishEvent.location || '';
+            document.getElementById('eventTypeEn').value = englishEvent.type || '';
+            document.getElementById('eventDescEn').value = englishEvent.description || '';
             
             if (event.image) {
                 document.getElementById('eventPreview').src = event.image;
@@ -594,9 +638,7 @@ function editEvent(id) {
 function deleteEvent(id) {
     if (!confirm('هل أنت متأكد من حذف هذه الفعالية؟')) return;
     
-    let events = JSON.parse(getfirebase.getItem(StorageKeys.EVENTS) || '[]');
-    events = events.filter(e => e.id !== id);
-    getfirebase.setItem(StorageKeys.EVENTS, JSON.stringify(events));
+    removeLocalizedRecord(StorageKeys.EVENTS, EnglishStorageKeys.EVENTS, id);
     
     loadEvents();
     updateDashboardStats();
@@ -672,6 +714,11 @@ function openDateModal(dateId = null) {
             document.getElementById('dateSize').value = date.size;
             document.getElementById('dateClass').value = date.classification;
             document.getElementById('dateDesc').value = date.description;
+            const englishDate = getStoredList(EnglishStorageKeys.DATES).find(item => Number(item.id) === Number(date.id)) || {};
+            document.getElementById('dateNameEn').value = englishDate.name || '';
+            document.getElementById('dateSizeEn').value = englishDate.size || '';
+            document.getElementById('dateClassEn').value = englishDate.classification || '';
+            document.getElementById('dateDescEn').value = englishDate.description || '';
             
             if (date.image) {
                 document.getElementById('datePreview').src = date.image;
@@ -697,9 +744,7 @@ function editDate(id) {
 function deleteDate(id) {
     if (!confirm('هل أنت متأكد من حذف هذا النوع؟')) return;
     
-    let dates = JSON.parse(getfirebase.getItem(StorageKeys.DATES) || '[]');
-    dates = dates.filter(d => d.id !== id);
-    getfirebase.setItem(StorageKeys.DATES, JSON.stringify(dates));
+    removeLocalizedRecord(StorageKeys.DATES, EnglishStorageKeys.DATES, id);
     
     loadDates();
     updateDashboardStats();
@@ -771,12 +816,16 @@ function clearAllMessages() {
 // Settings Management
 function loadSettings() {
     const settings = JSON.parse(getfirebase.getItem(StorageKeys.SETTINGS) || '{}');
+    const englishSettings = JSON.parse(getfirebase.getItem(EnglishStorageKeys.SETTINGS) || '{}');
     
     document.getElementById('siteTitle').value = settings.siteTitle || '';
     document.getElementById('siteEmail').value = settings.email || '';
     document.getElementById('sitePhone').value = settings.phone || '';
     document.getElementById('siteAddress').value = settings.address || '';
     document.getElementById('aboutText').value = settings.aboutText || '';
+    document.getElementById('siteTitleEn').value = englishSettings.siteTitle || '';
+    document.getElementById('siteAddressEn').value = englishSettings.address || '';
+    document.getElementById('aboutTextEn').value = englishSettings.aboutText || '';
 }
 
 // Form Submissions
@@ -796,19 +845,17 @@ document.getElementById('dateForm').addEventListener('submit', function(e) {
         description: document.getElementById('dateDesc').value,
         image: imagePreview.src && !imagePreview.classList.contains('hidden') ? imagePreview.src : 'http://static.photos/food/640x360/1'
     };
-    
-    let dates = JSON.parse(getfirebase.getItem(StorageKeys.DATES) || '[]');
-    
-    if (dateId) {
-        const index = dates.findIndex(d => d.id === parseInt(dateId));
-        if (index !== -1) dates[index] = dateData;
-        addRecentUpdate('تم تحديث نوع تمر: ' + dateData.name);
-    } else {
-        dates.push(dateData);
-        addRecentUpdate('تم إضافة نوع تمر جديد: ' + dateData.name);
-    }
-    
-    getfirebase.setItem(StorageKeys.DATES, JSON.stringify(dates));
+
+    const existingEnglish = getStoredList(EnglishStorageKeys.DATES).find(d => Number(d.id) === dateData.id) || {};
+    syncLocalizedRecord(StorageKeys.DATES, EnglishStorageKeys.DATES, dateData, {
+        id: dateData.id,
+        name: normalizeText(document.getElementById('dateNameEn')?.value) || existingEnglish.name || dateData.name,
+        size: normalizeText(document.getElementById('dateSizeEn')?.value) || existingEnglish.size || dateData.size,
+        classification: normalizeText(document.getElementById('dateClassEn')?.value) || existingEnglish.classification || dateData.classification,
+        description: normalizeText(document.getElementById('dateDescEn')?.value) || existingEnglish.description || dateData.description,
+        image: dateData.image
+    });
+    addRecentUpdate((dateId ? 'تم تحديث نوع تمر: ' : 'تم إضافة نوع تمر جديد: ') + dateData.name);
     closeDateModal();
     loadDates();
     updateDashboardStats();
@@ -830,18 +877,17 @@ document.getElementById('eventForm').addEventListener('submit', function(e) {
         image: imagePreview.src && !imagePreview.classList.contains('hidden') ? imagePreview.src : 'http://static.photos/event/640x360/111'
     };
 
-    let events = JSON.parse(getfirebase.getItem(StorageKeys.EVENTS) || '[]');
-
-    if (eventId) {
-        const index = events.findIndex(ev => ev.id === parseInt(eventId));
-        if (index !== -1) events[index] = eventData;
-        addRecentUpdate('تم تحديث الفعالية: ' + eventData.title);
-    } else {
-        events.push(eventData);
-        addRecentUpdate('تم إضافة فعالية جديدة: ' + eventData.title);
-    }
-
-    getfirebase.setItem(StorageKeys.EVENTS, JSON.stringify(events));
+    const existingEnglish = getStoredList(EnglishStorageKeys.EVENTS).find(ev => Number(ev.id) === eventData.id) || {};
+    syncLocalizedRecord(StorageKeys.EVENTS, EnglishStorageKeys.EVENTS, eventData, {
+        id: eventData.id,
+        title: normalizeText(document.getElementById('eventTitleEn')?.value) || existingEnglish.title || eventData.title,
+        date: normalizeText(document.getElementById('eventDateEn')?.value) || existingEnglish.date || eventData.date,
+        location: normalizeText(document.getElementById('eventLocationEn')?.value) || existingEnglish.location || eventData.location,
+        type: normalizeText(document.getElementById('eventTypeEn')?.value) || existingEnglish.type || eventData.type,
+        description: normalizeText(document.getElementById('eventDescEn')?.value) || existingEnglish.description || eventData.description,
+        image: eventData.image
+    });
+    addRecentUpdate((eventId ? 'تم تحديث الفعالية: ' : 'تم إضافة فعالية جديدة: ') + eventData.title);
     closeEventModal();
     loadEvents();
     updateDashboardStats();
@@ -858,7 +904,15 @@ document.getElementById('settingsForm').addEventListener('submit', function(e) {
         aboutText: document.getElementById('aboutText').value
     };
     
+    const englishSettings = {
+        siteTitle: normalizeText(document.getElementById('siteTitleEn')?.value) || settings.siteTitle,
+        email: settings.email,
+        phone: settings.phone,
+        address: normalizeText(document.getElementById('siteAddressEn')?.value) || settings.address,
+        aboutText: normalizeText(document.getElementById('aboutTextEn')?.value) || settings.aboutText
+    };
     getfirebase.setItem(StorageKeys.SETTINGS, JSON.stringify(settings));
+    getfirebase.setItem(EnglishStorageKeys.SETTINGS, JSON.stringify(englishSettings));
     alert('تم حفظ الإعدادات بنجاح!');
     addRecentUpdate('تم تحديث إعدادات الموقع');
 });
@@ -1002,6 +1056,11 @@ function openCouncilModal(memberId = null) {
             document.getElementById('councilBio').value = member.bio;
             document.getElementById('councilEmail').value = member.email;
             document.getElementById('councilPhone').value = member.phone;
+            const englishMember = getStoredList(EnglishStorageKeys.COUNCIL).find(item => Number(item.id) === Number(member.id)) || {};
+            document.getElementById('councilNameEn').value = englishMember.name || '';
+            document.getElementById('councilPositionEn').value = englishMember.position || '';
+            document.getElementById('councilCategoryEn').value = englishMember.category || '';
+            document.getElementById('councilBioEn').value = englishMember.bio || '';
             
             if (member.image) {
                 document.getElementById('councilPreview').src = member.image;
@@ -1038,17 +1097,18 @@ function saveCouncil(event) {
             : document.getElementById('councilPreview').src
     };
     
-    if (id) {
-        const index = council.findIndex(m => m.id === id);
-        if (index !== -1) {
-            council[index] = { id, ...memberData };
-        }
-    } else {
-        const newId = council.length > 0 ? Math.max(...council.map(m => m.id)) + 1 : 1;
-        council.push({ id: newId, ...memberData });
-    }
-    
-    getfirebase.setItem(StorageKeys.COUNCIL, JSON.stringify(council));
+    const memberId = id || (council.length > 0 ? Math.max(...council.map(m => m.id)) + 1 : 1);
+    const existingEnglish = getStoredList(EnglishStorageKeys.COUNCIL).find(m => Number(m.id) === memberId) || {};
+    syncLocalizedRecord(StorageKeys.COUNCIL, EnglishStorageKeys.COUNCIL, { id: memberId, ...memberData }, {
+        id: memberId,
+        name: normalizeText(document.getElementById('councilNameEn')?.value) || existingEnglish.name || memberData.name,
+        position: normalizeText(document.getElementById('councilPositionEn')?.value) || existingEnglish.position || memberData.position,
+        category: normalizeText(document.getElementById('councilCategoryEn')?.value) || existingEnglish.category || memberData.category,
+        bio: normalizeText(document.getElementById('councilBioEn')?.value) || existingEnglish.bio || memberData.bio,
+        email: memberData.email,
+        phone: memberData.phone,
+        image: memberData.image
+    });
     closeCouncilModal();
     loadCouncil();
     updateDashboardStats();
@@ -1062,9 +1122,7 @@ function editCouncil(id) {
 function deleteCouncil(id) {
     if (!confirm('هل أنت متأكد من حذف هذا العضو؟')) return;
     
-    let council = JSON.parse(getfirebase.getItem(StorageKeys.COUNCIL) || '[]');
-    council = council.filter(m => m.id !== id);
-    getfirebase.setItem(StorageKeys.COUNCIL, JSON.stringify(council));
+    removeLocalizedRecord(StorageKeys.COUNCIL, EnglishStorageKeys.COUNCIL, id);
     
     loadCouncil();
     updateDashboardStats();
@@ -1166,6 +1224,9 @@ function openStudiesModal(studyId = null) {
             document.getElementById('studiesTitle').value = study.title;
             document.getElementById('studiesDescription').value = study.description;
             document.getElementById('studiesDate').value = study.date;
+            const englishStudy = getStoredList(EnglishStorageKeys.STUDIES).find(s => Number(s.id) === Number(study.id)) || {};
+            document.getElementById('studiesTitleEn').value = englishStudy.title || '';
+            document.getElementById('studiesDescriptionEn').value = englishStudy.description || '';
             
             // Note: File input cannot be pre-filled for security reasons
             document.getElementById('studiesFile').required = false;
@@ -1259,7 +1320,23 @@ function saveStudies(event) {
                 });
             }
             
+            const currentStudy = studies.find(study => Number(study.id) === Number(id)) || studies[studies.length - 1];
+            const englishStudies = getStoredList(EnglishStorageKeys.STUDIES);
+            const englishStudy = {
+                id: currentStudy.id,
+                title: normalizeText(document.getElementById('studiesTitleEn')?.value) || title,
+                description: normalizeText(document.getElementById('studiesDescriptionEn')?.value) || description,
+                date,
+                file: currentStudy.file,
+                fileName: currentStudy.fileName,
+                fileType: currentStudy.fileType,
+                fileData: currentStudy.fileData
+            };
+            const englishIndex = englishStudies.findIndex(s => Number(s.id) === Number(englishStudy.id));
+            if (englishIndex === -1) englishStudies.push(englishStudy);
+            else englishStudies[englishIndex] = { ...englishStudies[englishIndex], ...englishStudy };
             getfirebase.setItem(StorageKeys.STUDIES, JSON.stringify(studies));
+            getfirebase.setItem(EnglishStorageKeys.STUDIES, JSON.stringify(englishStudies));
             loadStudies();
             updateDashboardStats();
             closeStudiesModal();
@@ -1282,9 +1359,7 @@ function editStudy(id) {
 
 function deleteStudy(id) {
     if (confirm('هل أنت متأكد من حذف هذه الدراسة؟')) {
-        let studies = JSON.parse(getfirebase.getItem(StorageKeys.STUDIES) || '[]');
-        studies = studies.filter(s => s.id !== id);
-        getfirebase.setItem(StorageKeys.STUDIES, JSON.stringify(studies));
+        removeLocalizedRecord(StorageKeys.STUDIES, EnglishStorageKeys.STUDIES, id);
         loadStudies();
         updateDashboardStats();
         addRecentUpdate('تم حذف دراسة');
@@ -1373,6 +1448,10 @@ function openAdsModal(adId = null) {
             document.getElementById('adsType').value = ad.type;
             document.getElementById('adsDate').value = ad.date;
             document.getElementById('adsLink').value = ad.link || '';
+            const englishAd = getStoredList(EnglishStorageKeys.ADS).find(a => Number(a.id) === Number(ad.id)) || {};
+            document.getElementById('adsTitleEn').value = englishAd.title || '';
+            document.getElementById('adsDescriptionEn').value = englishAd.description || '';
+            document.getElementById('adsTypeEn').value = englishAd.type || '';
             
             if (ad.image) {
                 document.getElementById('adsPreview').src = sanitizeImageSource(ad.image);
@@ -1458,7 +1537,22 @@ function saveAds(event) {
                 });
             }
             
+            const currentAd = ads.find(adItem => Number(adItem.id) === Number(id || ads[ads.length - 1].id));
+            const englishAds = getStoredList(EnglishStorageKeys.ADS);
+            const englishAd = {
+                id: currentAd.id,
+                title: normalizeText(document.getElementById('adsTitleEn')?.value) || title,
+                description: normalizeText(document.getElementById('adsDescriptionEn')?.value) || description,
+                image: currentAd.image,
+                type: normalizeText(document.getElementById('adsTypeEn')?.value) || type,
+                date,
+                link
+            };
+            const englishIndex = englishAds.findIndex(adItem => Number(adItem.id) === Number(englishAd.id));
+            if (englishIndex === -1) englishAds.push(englishAd);
+            else englishAds[englishIndex] = { ...englishAds[englishIndex], ...englishAd };
             getfirebase.setItem(StorageKeys.ADS, JSON.stringify(ads));
+            getfirebase.setItem(EnglishStorageKeys.ADS, JSON.stringify(englishAds));
             loadAds();
             updateDashboardStats();
             closeAdsModal();
@@ -1481,9 +1575,7 @@ function editAd(id) {
 
 function deleteAd(id) {
     if (confirm('هل أنت متأكد من حذف هذا الإعلان؟')) {
-        let ads = JSON.parse(getfirebase.getItem(StorageKeys.ADS) || '[]');
-        ads = ads.filter(a => a.id !== id);
-        getfirebase.setItem(StorageKeys.ADS, JSON.stringify(ads));
+        removeLocalizedRecord(StorageKeys.ADS, EnglishStorageKeys.ADS, id);
         loadAds();
         updateDashboardStats();
         addRecentUpdate('تم حذف إعلان');
